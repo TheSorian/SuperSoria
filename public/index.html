@@ -61,12 +61,19 @@
         </div>
       </div>
 
-      <!-- Métricas rápidas -->
+      <!-- Métricas rápidas y botón móvil -->
       <div class="flex items-center space-x-2 text-xs">
         <div id="stats-badge" class="bg-black/25 backdrop-blur-sm border border-white/20 px-3 py-1.5 rounded-xl flex items-center gap-2">
           <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
           <span id="stat-products" class="font-medium">Cargando catálogo...</span>
         </div>
+        <button 
+          onclick="openMobileModal()" 
+          class="bg-amber-400 hover:bg-amber-300 text-red-950 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 shadow-sm transition shrink-0"
+          title="Abrir QuéFalta Soria en el móvil a través de la red local Wi-Fi"
+        >
+          <span>📱</span> <span class="hidden sm:inline">Abrir en</span> Móvil
+        </button>
       </div>
     </div>
 
@@ -369,6 +376,39 @@
     <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl relative animate-slide-down">
       <button onclick="closeCompareModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-black w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition">✕</button>
       <div id="compare-modal-content"></div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: ABRIR EN EL MÓVIL (RED LOCAL WI-FI) -->
+  <!-- ========================================== -->
+  <div id="mobile-qr-modal" class="hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl relative animate-slide-down text-center space-y-4">
+      <button onclick="closeMobileModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-xl font-black w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition">✕</button>
+      
+      <div class="w-12 h-12 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center mx-auto text-2xl">
+        📱
+      </div>
+
+      <div>
+        <h3 class="text-base font-black text-slate-900">Usa QuéFalta en tu móvil</h3>
+        <p class="text-xs text-slate-500 mt-1">Conecta tu móvil a la misma red Wi-Fi y escanea el código QR:</p>
+      </div>
+
+      <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 inline-block shadow-inner mx-auto">
+        <img id="qr-code-img" src="" alt="Código QR QuéFalta Soria" class="w-48 h-48 mx-auto rounded-xl" />
+      </div>
+
+      <div class="bg-slate-100 p-2.5 rounded-xl border border-slate-200 text-xs font-mono font-bold text-slate-700 flex items-center justify-between gap-2">
+        <span id="mobile-url-display" class="truncate">http://192.168.1.100:3000</span>
+        <button onclick="copyMobileUrl()" class="px-2.5 py-1 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 text-[11px] font-sans font-bold shrink-0">
+          Copiar
+        </button>
+      </div>
+
+      <p class="text-[11px] text-slate-400">
+        💡 Podrás usar tu lista inteligente y tachar artículos directamente en el supermercado.
+      </p>
     </div>
   </div>
 
@@ -1318,6 +1358,38 @@
         dropdown.classList.add('hidden');
       }
     });
+
+    // Funciones para apertura en móvil / Red Local
+    let currentNetworkUrl = 'http://localhost:3000';
+
+    async function openMobileModal() {
+      const modal = document.getElementById('mobile-qr-modal');
+      modal.classList.remove('hidden');
+
+      try {
+        const res = await fetch('/api/network-info');
+        const data = await res.json();
+        currentNetworkUrl = data.networkUrl || window.location.href;
+        document.getElementById('mobile-url-display').innerText = currentNetworkUrl;
+        
+        // Generar QR para el móvil
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(currentNetworkUrl)}`;
+        document.getElementById('qr-code-img').src = qrUrl;
+      } catch (e) {
+        currentNetworkUrl = window.location.href;
+        document.getElementById('mobile-url-display').innerText = currentNetworkUrl;
+      }
+    }
+
+    function closeMobileModal() {
+      document.getElementById('mobile-qr-modal').classList.add('hidden');
+    }
+
+    function copyMobileUrl() {
+      navigator.clipboard.writeText(currentNetworkUrl).then(() => {
+        showToast('Enlace copiado al portapapeles', '📋');
+      });
+    }
 
     // Inicialización al cargar la página
     window.addEventListener('DOMContentLoaded', () => {
