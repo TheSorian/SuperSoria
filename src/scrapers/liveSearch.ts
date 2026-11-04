@@ -1,6 +1,7 @@
 import { ScrapedProduct } from './types.js';
 import { scraperManager } from './index.js';
 import { LupaScraper } from './lupa.js';
+import { ELeclercScraper } from './eleclerc.js';
 
 const SUPABASE_URL = 'https://gkffvigcnsesbaihycay.supabase.co';
 const ANON_KEY =
@@ -21,11 +22,13 @@ const FEEDS: FeedConfig[] = [
 ];
 
 const lupaLiveScraper = new LupaScraper();
+const eleclercLiveScraper = new ELeclercScraper();
 
 /**
  * Busca en tiempo real en todos los supermercados de Soria:
  * 1. Feeds de Dia, Lidl, Alcampo y Mercadona
- * 2. Scraper en vivo de Lupa Supermercados (web oficial)
+ * 2. Scraper en vivo de Lupa Supermercados (lupaonline.com)
+ * 3. Scraper en vivo de E.Leclerc Soria (soria.e-leclerc.es)
  * Y guarda automáticamente los resultados nuevos en la base de datos local.
  */
 export async function searchLiveFeedsAcrossAllSupermarkets(query: string): Promise<number> {
@@ -89,15 +92,17 @@ export async function searchLiveFeedsAcrossAllSupermarkets(query: string): Promi
     }
   });
 
-  // 2. Consulta en paralelo a Lupa Supermercados en vivo
+  // 2. Consulta en paralelo a Lupa y E.Leclerc Soria en vivo
   const lupaPromise = lupaLiveScraper.search(qClean);
+  const eleclercPromise = eleclercLiveScraper.search(qClean);
 
-  const [feedResults, lupaProducts] = await Promise.all([
+  const [feedResults, lupaProducts, eleclercProducts] = await Promise.all([
     Promise.all(feedPromises),
     lupaPromise,
+    eleclercPromise,
   ]);
 
-  const allFound = [...feedResults.flat(), ...lupaProducts];
+  const allFound = [...feedResults.flat(), ...lupaProducts, ...eleclercProducts];
 
   if (allFound.length > 0) {
     return await scraperManager.saveScrapedProducts(allFound);

@@ -114,7 +114,7 @@ export async function seedDatabase() {
       address: 'Polígono Industrial Las Casas, C/ J, Parcela 1',
       postalCode: '42005',
       city: 'Soria',
-      website: 'https://e-leclerc.es/soria',
+      website: 'https://soria.e-leclerc.es/',
       active: true,
     },
     {
@@ -124,7 +124,7 @@ export async function seedDatabase() {
       address: 'Calle Mariano Vicén, 24',
       postalCode: '42003',
       city: 'Soria',
-      website: 'https://e-leclerc.es/soria',
+      website: 'https://soria.e-leclerc.es/',
       active: true,
     },
     // Alcampo
