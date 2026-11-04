@@ -499,6 +499,39 @@
       return CHAIN_STYLES[chainName.toLowerCase()] || CHAIN_STYLES[chainName] || { icon: '🏪', bg: 'bg-slate-700', text: 'text-white', lightBg: 'bg-slate-50', border: 'border-slate-200', textCol: 'text-slate-700' };
     }
 
+    // Formateador inteligente para no mezclar precio por kg y por unidad
+    function formatPriceDisplay(price, referencePrice, referenceUnit, format, categoryId) {
+      if (price === null || price === undefined) return { main: '-', sub: '' };
+      const num = Number(price);
+      if (isNaN(num)) return { main: '-', sub: '' };
+
+      const pStr = num.toFixed(2).replace('.', ',');
+      const lowerFormat = (format || '').toLowerCase();
+      const isKgFormat = lowerFormat.includes('kg') || lowerFormat.includes('granel') || lowerFormat === '1 kg';
+      const isFresh = categoryId === 'frutas-verduras' || categoryId === 'pescaderia' || categoryId === 'carniceria-charcuteria';
+      const hasKgRef = referenceUnit && (referenceUnit.toLowerCase().includes('kg') || referenceUnit.toLowerCase().includes('kilo'));
+
+      // Si es fruta/verdura o carne/pescado fresca al peso o formato kg:
+      if ((isFresh && hasKgRef && isKgFormat) || isKgFormat) {
+        return {
+          main: `${pStr} €/kg`,
+          sub: ''
+        };
+      }
+
+      // Si tiene precio de referencia informativo (ej: bandeja 500g a 1,79€ con 3,58€/kg, o pack 6 a 8,10€ con 1,35€/l)
+      let sub = '';
+      if (referencePrice && Math.abs(referencePrice - num) > 0.05 && referenceUnit) {
+        const cleanUnit = referenceUnit.toLowerCase().replace('litro', 'l').replace('kilo', 'kg');
+        sub = `(${Number(referencePrice).toFixed(2).replace('.', ',')} €/${cleanUnit})`;
+      }
+
+      return {
+        main: `${pStr} €`,
+        sub: sub
+      };
+    }
+
     function showToast(message, icon = '✅') {
       const container = document.getElementById('toast-container');
       const toast = document.createElement('div');
@@ -809,7 +842,7 @@
                     <span>${style.icon}</span> ${chain}
                   </span>
                   <span class="text-xs font-black text-slate-800">
-                    ${unitPrice} € ${item.quantity > 1 ? `<span class="text-[10px] font-medium text-slate-400">(Total: ${totalPrice} €)</span>` : ''}
+                    ${formatPriceDisplay(unitPrice, targetPriceRecord.referencePrice, targetPriceRecord.referenceUnit, prod?.format, prod?.categoryId).main} ${item.quantity > 1 ? `<span class="text-[10px] font-medium text-slate-400">(Total: ${totalPrice} €)</span>` : ''}
                   </span>
                 ` : `
                   <span class="text-[10px] font-medium text-slate-400 italic">Sin precio vinculado</span>
@@ -1162,13 +1195,17 @@
                   ${chainPrices.length > 0 ? chainPrices.slice(0, 3).map((cp, idx) => {
                     const cStyle = getChainStyle(cp.chain);
                     const isLowest = idx === 0;
+                    const prDisplay = formatPriceDisplay(cp.price, cp.referencePrice, cp.referenceUnit, p.format, p.categoryId);
                     return `
                       <div class="flex items-center justify-between text-xs py-0.5">
                         <span class="flex items-center gap-1.5 font-bold ${isLowest ? 'text-emerald-800' : 'text-slate-600'}">
                           <span class="text-xs">${cStyle.icon}</span> ${cp.chain}
                           ${isLowest ? '<span class="text-[9px] bg-emerald-100 text-emerald-800 font-black px-1.5 py-0.2 rounded-full uppercase">Top</span>' : ''}
                         </span>
-                        <span class="font-black ${isLowest ? 'text-emerald-700' : 'text-slate-700'}">${cp.price} €</span>
+                        <div class="text-right">
+                          <span class="font-black ${isLowest ? 'text-emerald-700' : 'text-slate-700'}">${prDisplay.main}</span>
+                          ${prDisplay.sub ? `<span class="text-[9px] text-slate-400 font-medium block leading-none">${prDisplay.sub}</span>` : ''}
+                        </div>
                       </div>
                     `;
                   }).join('') : `
@@ -1185,7 +1222,7 @@
                 <div>
                   <span class="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block">Mejor precio:</span>
                   <div class="flex items-baseline gap-1">
-                    <span class="text-lg font-black text-emerald-700">${cheapest !== null ? cheapest + ' €' : '-'}</span>
+                    <span class="text-lg font-black text-emerald-700">${formatPriceDisplay(cheapest, null, null, p.format, p.categoryId).main}</span>
                     <span class="text-[11px] font-bold text-slate-500">${bestSm ? 'en ' + bestSm : ''}</span>
                   </div>
                 </div>
@@ -1274,7 +1311,10 @@
                         </div>
                       </div>
                       <div class="text-right">
-                        <span class="text-base font-black ${c.isCheapest ? 'text-emerald-700' : 'text-slate-800'}">${c.price} €</span>
+                        <span class="text-base font-black ${c.isCheapest ? 'text-emerald-700' : 'text-slate-800'}">${formatPriceDisplay(c.price, c.referencePrice, c.referenceUnit, product.format, product.categoryId).main}</span>
+                        ${c.referencePrice && Math.abs(c.referencePrice - c.price) > 0.05 && c.referenceUnit ? `
+                          <span class="text-[10px] text-slate-400 block">${Number(c.referencePrice).toFixed(2).replace('.', ',')} €/${c.referenceUnit.toLowerCase().replace('litro','l').replace('kilo','kg')}</span>
+                        ` : ''}
                         ${c.diffWithCheapest > 0 ? `<span class="text-[10px] text-rose-500 font-bold block">+${c.diffWithCheapest}€</span>` : ''}
                       </div>
                     </div>

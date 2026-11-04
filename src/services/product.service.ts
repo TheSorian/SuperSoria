@@ -231,11 +231,17 @@ export class ProductService {
       const priceDifference = minPrice !== null && maxPrice !== null ? +(maxPrice - minPrice).toFixed(2) : 0;
 
       // Precios unificados por cadena genérica (Mercadona, Dia, Lidl, Alcampo, E.Leclerc, Lupa)
-      const chainPricesMap = new Map<string, { chain: string; price: number; isOffer: boolean }>();
+      const chainPricesMap = new Map<string, { chain: string; price: number; referencePrice: number | null; referenceUnit: string | null; isOffer: boolean }>();
       for (const p of sortedPrices) {
         const ch = p.supermarket.chain;
         if (!chainPricesMap.has(ch) || chainPricesMap.get(ch)!.price > p.price) {
-          chainPricesMap.set(ch, { chain: ch, price: p.price, isOffer: p.isOffer });
+          chainPricesMap.set(ch, {
+            chain: ch,
+            price: p.price,
+            referencePrice: p.referencePrice ?? null,
+            referenceUnit: p.referenceUnit ?? null,
+            isOffer: p.isOffer,
+          });
         }
       }
 
