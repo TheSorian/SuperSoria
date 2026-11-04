@@ -211,6 +211,22 @@ router.post('/scrapers/run', async (req: Request, res: Response) => {
   }
 });
 
+router.post('/scrapers/import-all', async (_req: Request, res: Response) => {
+  try {
+    // Lanzar en segundo plano para volcar catálogos completos
+    import('../scrapers/importAllSoria.js')
+      .then(() => console.log('Importación masiva completada.'))
+      .catch((err) => console.error('Error importación masiva:', err));
+
+    res.json({
+      success: true,
+      message: 'Descarga completa de todos los supermercados de Soria iniciada en segundo plano (~35.000 productos).',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.get('/scrapers/logs', async (_req: Request, res: Response) => {
   try {
     const logs = await prisma.scrapeLog.findMany({

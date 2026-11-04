@@ -16,13 +16,11 @@ export class ProductService {
     const { query, categoryId, supermarketId, limit = 50, offset = 0, liveSync = true } = params;
 
     // Si el usuario introduce una búsqueda y liveSync está activo,
-    // consultamos los feeds de todos los supermercados para no perdernos ningún producto.
+    // sincronizamos en segundo plano sin bloquear la respuesta instantánea de la base de datos local (35.000+ productos).
     if (liveSync && query && query.trim().length >= 2) {
-      try {
-        await searchLiveFeedsAcrossAllSupermarkets(query.trim());
-      } catch (err: any) {
-        console.warn('Error en búsqueda en vivo:', err.message);
-      }
+      searchLiveFeedsAcrossAllSupermarkets(query.trim()).catch((err: any) => {
+        console.warn('Background live sync:', err.message);
+      });
     }
 
     const where: any = {};
