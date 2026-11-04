@@ -30,6 +30,7 @@ router.get('/categories', async (_req: Request, res: Response) => {
 router.get('/products', async (req: Request, res: Response) => {
   try {
     const query = req.query.q as string | undefined;
+    const brand = req.query.brand as string | undefined;
     const categoryId = req.query.category as string | undefined;
     const supermarketId = req.query.supermarket as string | undefined;
     const limit = parseInt(req.query.limit as string) || 40;
@@ -37,6 +38,7 @@ router.get('/products', async (req: Request, res: Response) => {
 
     const data = await productService.searchProducts({
       query,
+      brand,
       categoryId,
       supermarketId,
       limit,
@@ -44,6 +46,38 @@ router.get('/products', async (req: Request, res: Response) => {
     });
 
     res.json({ success: true, ...data });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// --- MARCAS POPULARES DE SORIA ---
+router.get('/brands', async (_req: Request, res: Response) => {
+  try {
+    const brands = await prisma.product.groupBy({
+      by: ['brand'],
+      where: {
+        brand: { not: null },
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        _count: {
+          id: 'desc',
+        },
+      },
+      take: 80,
+    });
+
+    const cleanBrands = brands
+      .filter((b) => b.brand && b.brand.trim() !== '')
+      .map((b) => ({
+        name: b.brand,
+        count: b._count.id,
+      }));
+
+    res.json({ success: true, count: cleanBrands.length, brands: cleanBrands });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -221,6 +255,21 @@ router.post('/scrapers/import-all', async (_req: Request, res: Response) => {
     res.json({
       success: true,
       message: 'Descarga completa de todos los supermercados de Soria iniciada en segundo plano (~35.000 productos).',
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.post('/scrapers/expand-leclerc-lupa', async (_req: Request, res: Response) => {
+  try {
+    import('../scrapers/expandLeclercAndLupa.js')
+      .then((m) => m.expandBoth())
+      .catch((err) => console.error('Error expandiendo E.Leclerc y Lupa:', err));
+
+    res.json({
+      success: true,
+      message: 'Escaneo masivo y profundo de E.Leclerc Soria y Lupa Granados iniciado en segundo plano.',
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });

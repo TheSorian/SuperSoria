@@ -7,13 +7,14 @@ export class ProductService {
    */
   async searchProducts(params: {
     query?: string;
+    brand?: string;
     categoryId?: string;
     supermarketId?: string;
     limit?: number;
     offset?: number;
     liveSync?: boolean;
   }) {
-    const { query, categoryId, supermarketId, limit = 50, offset = 0, liveSync = true } = params;
+    const { query, brand, categoryId, supermarketId, limit = 50, offset = 0, liveSync = true } = params;
 
     // Si el usuario introduce una búsqueda y liveSync está activo,
     // sincronizamos en segundo plano sin bloquear la respuesta instantánea de la base de datos local (35.000+ productos).
@@ -25,11 +26,26 @@ export class ProductService {
 
     const where: any = {};
 
+    // Búsqueda inteligente multi-palabra (permite buscar por marca, producto o combinación "leche pascual")
     if (query && query.trim()) {
-      where.OR = [
-        { name: { contains: query.trim() } },
-        { brand: { contains: query.trim() } },
-      ];
+      const tokens = query.trim().split(/\s+/).filter(Boolean);
+      if (tokens.length === 1) {
+        where.OR = [
+          { name: { contains: tokens[0] } },
+          { brand: { contains: tokens[0] } },
+        ];
+      } else {
+        where.AND = tokens.map((token) => ({
+          OR: [
+            { name: { contains: token } },
+            { brand: { contains: token } },
+          ],
+        }));
+      }
+    }
+
+    if (brand && brand.trim()) {
+      where.brand = { contains: brand.trim() };
     }
 
     if (categoryId) {

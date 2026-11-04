@@ -145,7 +145,7 @@
               autocomplete="off"
               oninput="handleTypeaheadInput(event)" 
               onkeydown="handleTypeaheadKeydown(event)"
-              placeholder="Escribe para buscar productos reales (ej: Leche fresca, Aceite de oliva, Torreznos, Huevos...)" 
+              placeholder="Escribe un producto o marca (ej: Leche Pascual, Danone, Hacendado, Aceite Carbonell...)" 
               class="w-full pl-10 pr-24 py-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent transition placeholder:text-slate-400 font-medium"
             />
             <button 
@@ -245,7 +245,7 @@
               type="text" 
               id="search-query" 
               oninput="debounceSearch()" 
-              placeholder="Buscar en todos los supermercados de Soria (ej: aceite, leche, mantequilla...)" 
+              placeholder="Buscar por producto o marca (ej: Pascual, Danone, Hacendado, leche, aceite...)" 
               class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
             />
           </div>
@@ -256,6 +256,28 @@
           >
             <option value="">Todas las secciones</option>
           </select>
+          <select 
+            id="filter-brand" 
+            onchange="onBrandSelectChange()" 
+            class="px-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-600"
+          >
+            <option value="">Todas las marcas</option>
+          </select>
+        </div>
+
+        <!-- Filtro rápido por marcas más populares -->
+        <div class="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1" id="brand-filter-chips">
+          <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider shrink-0 mr-1">Marcas:</span>
+          <button onclick="setBrandFilter('')" class="brand-chip active text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-700 text-white transition whitespace-nowrap shadow-sm">Todas</button>
+          <button onclick="setBrandFilter('Pascual')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Pascual</button>
+          <button onclick="setBrandFilter('Danone')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Danone</button>
+          <button onclick="setBrandFilter('Hacendado')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Hacendado</button>
+          <button onclick="setBrandFilter('Alteza')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Alteza (Lupa)</button>
+          <button onclick="setBrandFilter('Eliges')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Eliges (Leclerc)</button>
+          <button onclick="setBrandFilter('Milbona')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Milbona (Lidl)</button>
+          <button onclick="setBrandFilter('Moreno Sáez')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Moreno Sáez (Soria)</button>
+          <button onclick="setBrandFilter('Carbonell')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Carbonell</button>
+          <button onclick="setBrandFilter('Gullón')" class="brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap">Gullón</button>
         </div>
 
         <!-- Filtro rápido por supermercados de Soria -->
@@ -356,6 +378,23 @@
           </button>
         </div>
 
+        <div class="mt-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-indigo-50/80 p-4 rounded-2xl border border-indigo-200">
+          <div>
+            <h3 class="text-xs font-black text-indigo-900 uppercase tracking-wider flex items-center gap-1.5">
+              <span>🐺🏢</span> Escaneo Profundo de E.Leclerc Soria y Lupa Granados
+            </h3>
+            <p class="text-xs text-indigo-700 mt-0.5">
+              Rastrea todas las secciones de E.Leclerc Soria (Polígono Las Casas) y Lupa Supermercados (Mariano Granados) para multiplicar sus referencias y precios.
+            </p>
+          </div>
+          <button 
+            onclick="triggerExpandLeclercLupa()" 
+            class="bg-gradient-to-r from-indigo-700 to-blue-800 hover:from-indigo-800 hover:to-blue-900 text-white font-extrabold text-xs px-5 py-2.5 rounded-xl shadow-md transition flex items-center justify-center gap-2 shrink-0"
+          >
+            <span>🚀</span> Rastrear E.Leclerc y Lupa
+          </button>
+        </div>
+
         <div id="scraper-status-banner" class="hidden p-3 rounded-xl text-xs font-semibold"></div>
       </div>
 
@@ -417,6 +456,7 @@
     const SHARE_CODE = 'soria-semanal';
     let currentTab = 'list';
     let activeSupermarketFilter = '';
+    let activeBrandFilter = '';
     let activeListStoreFilter = '';
     let searchDebounceTimeout = null;
     let typeaheadDebounceTimeout = null;
@@ -972,6 +1012,44 @@
       }
     }
 
+    async function loadBrands() {
+      try {
+        const res = await fetch('/api/brands');
+        const data = await res.json();
+        const sel = document.getElementById('filter-brand');
+        if (sel && data.brands) {
+          sel.innerHTML = '<option value="">Todas las marcas</option>' + 
+            data.brands.map(b => `<option value="${b.name}">${b.name} (${b.count})</option>`).join('');
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function onBrandSelectChange() {
+      const sel = document.getElementById('filter-brand');
+      setBrandFilter(sel.value);
+    }
+
+    function setBrandFilter(brand) {
+      activeBrandFilter = brand;
+      // Actualizar chips de marca
+      document.querySelectorAll('.brand-chip').forEach(btn => {
+        const text = btn.innerText;
+        if ((!brand && text === 'Todas') || (brand && text.toLowerCase().includes(brand.toLowerCase()))) {
+          btn.className = 'brand-chip active text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-700 text-white transition whitespace-nowrap shadow-sm';
+        } else {
+          btn.className = 'brand-chip text-xs font-semibold px-2.5 py-1 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 transition whitespace-nowrap';
+        }
+      });
+      // Sincronizar select
+      const sel = document.getElementById('filter-brand');
+      if (sel && sel.value !== brand) {
+        sel.value = brand;
+      }
+      loadProducts();
+    }
+
     function debounceSearch() {
       clearTimeout(searchDebounceTimeout);
       searchDebounceTimeout = setTimeout(loadProducts, 250);
@@ -999,6 +1077,7 @@
         let url = `/api/products?limit=40`;
         if (q) url += `&q=${encodeURIComponent(q)}`;
         if (cat) url += `&category=${cat}`;
+        if (activeBrandFilter) url += `&brand=${encodeURIComponent(activeBrandFilter)}`;
         if (activeSupermarketFilter) url += `&supermarket=${activeSupermarketFilter}`;
 
         const res = await fetch(url);
@@ -1318,6 +1397,28 @@
       }
     }
 
+    async function triggerExpandLeclercLupa() {
+      const banner = document.getElementById('scraper-status-banner');
+      banner.classList.remove('hidden', 'bg-rose-100', 'text-rose-800', 'bg-emerald-100', 'text-emerald-800');
+      banner.classList.add('bg-indigo-100', 'text-indigo-900');
+      banner.innerText = '🐺🏢 Rastreo masivo de E.Leclerc Soria y Lupa Granados iniciado en segundo plano...';
+
+      try {
+        const res = await fetch('/api/scrapers/expand-leclerc-lupa', { method: 'POST' });
+        const data = await res.json();
+        if (data.success) {
+          showToast('Escaneo de E.Leclerc y Lupa en marcha', '🚀');
+          setTimeout(() => {
+            loadStats();
+            loadScraperLogs();
+          }, 3000);
+        }
+      } catch (e) {
+        banner.classList.add('bg-rose-100', 'text-rose-800');
+        banner.innerText = `❌ Error: ${e.message}`;
+      }
+    }
+
     async function loadScraperLogs() {
       const container = document.getElementById('scrape-logs-table');
       try {
@@ -1396,6 +1497,7 @@
       loadStats();
       loadShoppingList();
       loadCategories();
+      loadBrands();
       loadSupermarkets();
     });
   </script>
