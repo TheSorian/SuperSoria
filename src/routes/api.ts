@@ -61,6 +61,42 @@ router.get('/products/:id/compare', async (req: Request, res: Response) => {
   }
 });
 
+// Actualizar o registrar precio manualmente (ej: E.Leclerc en tienda o corrección de usuario)
+router.post('/products/:id/price', async (req: Request, res: Response) => {
+  try {
+    const { supermarketId, price, isOffer } = req.body;
+    const numPrice = parseFloat(price);
+    if (!numPrice || isNaN(numPrice)) {
+      return res.status(400).json({ success: false, error: 'Precio inválido' });
+    }
+
+    const existing = await prisma.priceRecord.findFirst({
+      where: { productId: req.params.id, supermarketId },
+    });
+
+    let record;
+    if (existing) {
+      record = await prisma.priceRecord.update({
+        where: { id: existing.id },
+        data: { price: numPrice, isOffer: Boolean(isOffer), updatedAt: new Date() },
+      });
+    } else {
+      record = await prisma.priceRecord.create({
+        data: {
+          productId: req.params.id,
+          supermarketId,
+          price: numPrice,
+          isOffer: Boolean(isOffer),
+        },
+      });
+    }
+
+    res.json({ success: true, record });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // --- LISTAS DE LA COMPRA ---
 router.get('/lists/:shareCode', async (req: Request, res: Response) => {
   try {
@@ -95,6 +131,52 @@ router.patch('/items/:id/toggle', async (req: Request, res: Response) => {
   try {
     const updated = await listService.toggleItem(req.params.id);
     res.json({ success: true, item: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.patch('/items/:id/quantity', async (req: Request, res: Response) => {
+  try {
+    const { delta, quantity } = req.body;
+    const item = await prisma.listItem.findUnique({ where: { id: req.params.id } });
+    if (!item) return res.status(404).json({ success: false, error: 'Ítem no encontrado' });
+
+    let newQty = quantity !== undefined ? parseFloat(quantity) : item.quantity + (parseFloat(delta) || 0);
+    if (newQty < 1) newQty = 1;
+
+    const updated = await prisma.listItem.update({
+      where: { id: req.params.id },
+      data: { quantity: newQty },
+    });
+    res.json({ success: true, item: updated });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete('/lists/:shareCode/completed', async (req: Request, res: Response) => {
+  try {
+    const listData = await listService.getListByCode(req.params.shareCode);
+    const deleted = await prisma.listItem.deleteMany({
+      where: {
+        listId: listData.list.id,
+        checked: true,
+      },
+    });
+    res.json({ success: true, count: deleted.count });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+router.delete('/lists/:shareCode/clear', async (req: Request, res: Response) => {
+  try {
+    const listData = await listService.getListByCode(req.params.shareCode);
+    const deleted = await prisma.listItem.deleteMany({
+      where: { listId: listData.list.id },
+    });
+    res.json({ success: true, count: deleted.count });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

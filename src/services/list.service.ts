@@ -108,15 +108,33 @@ export class ListService {
     targetSupermarketId?: string;
   }) {
     let name = data.customName;
-    if (data.productId && !name) {
-      const prod = await prisma.product.findUnique({ where: { id: data.productId } });
+    let productId = data.productId;
+
+    // Si no se proporcionó productId pero sí un nombre, intentar vincularlo inteligentemente
+    if (!productId && name) {
+      const trimmed = name.trim();
+      const firstWord = trimmed.split(' ')[0];
+      const match = await prisma.product.findFirst({
+        where: {
+          OR: [
+            { name: { contains: trimmed } },
+            { name: { contains: firstWord } },
+          ],
+        },
+      });
+      if (match) {
+        productId = match.id;
+        if (!name) name = match.name;
+      }
+    } else if (productId && !name) {
+      const prod = await prisma.product.findUnique({ where: { id: productId } });
       name = prod?.name;
     }
 
     return prisma.listItem.create({
       data: {
         listId: data.listId,
-        productId: data.productId || null,
+        productId: productId || null,
         customName: name || 'Artículo sin nombre',
         quantity: data.quantity || 1,
         notes: data.notes || null,
@@ -159,49 +177,78 @@ export class ListService {
   }
 
   /**
-   * Estima el coste de la lista completa en los distintos supermercados de Soria
+   * Estima el coste de la lista completa en los distintos supermercados de Soria y por cadenas
    */
   private async estimateBasketCost(items: any[]) {
     const supermarkets = await prisma.supermarket.findMany({ where: { active: true } });
-    const estimates: {
-      [smId: string]: {
-        supermarketId: string;
-        name: string;
+    const chains = ['Mercadona', 'Dia', 'Lidl', 'Lupa', 'E.Leclerc', 'Alcampo'];
+
+    const chainEstimates: {
+      [chain: string]: {
         chain: string;
         total: number;
         itemsFound: number;
         totalItems: number;
+        missingItems: string[];
       };
     } = {};
 
-    for (const sm of supermarkets) {
-      estimates[sm.id] = {
-        supermarketId: sm.id,
-        name: sm.name,
-        chain: sm.chain,
+    for (const ch of chains) {
+      chainEstimates[ch] = {
+        chain: ch,
         total: 0,
         itemsFound: 0,
         totalItems: items.length,
+        missingItems: [],
       };
     }
 
+    let optimalTotal = 0;
+    let optimalFound = 0;
+
     for (const item of items) {
       const prices = item.product?.prices || [];
-      for (const sm of supermarkets) {
-        const smPrice = prices.find((p: any) => p.supermarketId === sm.id);
-        if (smPrice) {
-          estimates[sm.id].total += +(smPrice.price * item.quantity).toFixed(2);
-          estimates[sm.id].itemsFound += 1;
+      const itemQty = item.quantity || 1;
+
+      // Buscar mejor precio por cada cadena en Soria
+      for (const ch of chains) {
+        const chPrices = prices.filter(
+          (p: any) => p.supermarket && p.supermarket.chain.toLowerCase() === ch.toLowerCase()
+        );
+        if (chPrices.length > 0) {
+          const bestPrice = Math.min(...chPrices.map((p: any) => p.price));
+          chainEstimates[ch].total += +(bestPrice * itemQty).toFixed(2);
+          chainEstimates[ch].itemsFound += 1;
+        } else {
+          chainEstimates[ch].missingItems.push(item.product?.name || item.customName);
         }
+      }
+
+      // Para la cesta óptima (comprando en el más barato de cada uno)
+      if (prices.length > 0) {
+        const minPrice = Math.min(...prices.map((p: any) => p.price));
+        optimalTotal += +(minPrice * itemQty).toFixed(2);
+        optimalFound += 1;
       }
     }
 
-    return Object.values(estimates)
-      .map((e) => ({
-        ...e,
-        total: +e.total.toFixed(2),
-      }))
-      .sort((a, b) => (a.itemsFound > 0 && b.itemsFound > 0 ? a.total - b.total : b.itemsFound - a.itemsFound));
+    const sortedChains = Object.values(chainEstimates)
+      .map((c) => ({ ...c, total: +c.total.toFixed(2) }))
+      .sort((a, b) => b.itemsFound - a.itemsFound || (a.total > 0 && b.total > 0 ? a.total - b.total : 0));
+
+    const validTotals = sortedChains.filter((c) => c.itemsFound > 0).map((c) => c.total);
+    const highestSingle = validTotals.length > 0 ? Math.max(...validTotals) : 0;
+    const potentialSavings = +(highestSingle - optimalTotal).toFixed(2);
+
+    return {
+      byChain: sortedChains,
+      optimal: {
+        total: +optimalTotal.toFixed(2),
+        itemsFound: optimalFound,
+        totalItems: items.length,
+        potentialSavings: potentialSavings > 0 ? potentialSavings : 0,
+      },
+    };
   }
 }
 
