@@ -1,5 +1,6 @@
 import { ScrapedProduct } from './types.js';
 import { scraperManager } from './index.js';
+import { LupaScraper } from './lupa.js';
 
 const SUPABASE_URL = 'https://gkffvigcnsesbaihycay.supabase.co';
 const ANON_KEY =
@@ -11,24 +12,30 @@ interface FeedConfig {
   name: string;
 }
 
+// Supermercados de Soria integrados vía feed
 const FEEDS: FeedConfig[] = [
   { supermarketId: 'dia-aguirre', tableName: 'dia_products', name: 'Dia' },
   { supermarketId: 'lidl-valladolid', tableName: 'lidl_products', name: 'Lidl' },
   { supermarketId: 'alcampo-camaretas', tableName: 'alcampo_products', name: 'Alcampo' },
-  { supermarketId: 'aldi-soria', tableName: 'aldi_products', name: 'Aldi' },
   { supermarketId: 'mercadona-saavedra', tableName: 'mercadona_products', name: 'Mercadona' },
 ];
 
+const lupaLiveScraper = new LupaScraper();
+
 /**
- * Busca en tiempo real en todos los feeds de los supermercados de Soria
- * y guarda automáticamente los resultados nuevos en la base de datos local.
+ * Busca en tiempo real en todos los supermercados de Soria:
+ * 1. Feeds de Dia, Lidl, Alcampo y Mercadona
+ * 2. Scraper en vivo de Lupa Supermercados (web oficial)
+ * Y guarda automáticamente los resultados nuevos en la base de datos local.
  */
 export async function searchLiveFeedsAcrossAllSupermarkets(query: string): Promise<number> {
   const qClean = query.trim();
   if (!qClean || qClean.length < 2) return 0;
 
   const q = encodeURIComponent(`*${qClean}*`);
-  const fetchPromises = FEEDS.map(async (f) => {
+
+  // 1. Consultas a los feeds de Supabase
+  const feedPromises = FEEDS.map(async (f) => {
     try {
       const url = `${SUPABASE_URL}/rest/v1/${f.tableName}?display_name=ilike.${q}&select=*&limit=30`;
       const res = await fetch(url, {
@@ -66,7 +73,11 @@ export async function searchLiveFeedsAcrossAllSupermarkets(query: string): Promi
           inStock: row.available !== false,
           imageUrl: row.thumbnail || row.illustration_url || null,
           categoryHint: row.category_name || (Array.isArray(row.categoryPath) ? row.categoryPath.join(' > ') : null),
-          externalUrl: row.raw?.url ? (row.raw.url.startsWith('http') ? row.raw.url : `https://${f.name.toLowerCase()}.es${row.raw.url}`) : null,
+          externalUrl: row.raw?.url
+            ? row.raw.url.startsWith('http')
+              ? row.raw.url
+              : `https://${f.name.toLowerCase()}.es${row.raw.url}`
+            : null,
           supermarketId: f.supermarketId,
         });
       }
@@ -78,8 +89,15 @@ export async function searchLiveFeedsAcrossAllSupermarkets(query: string): Promi
     }
   });
 
-  const resultsByFeed = await Promise.all(fetchPromises);
-  const allFound = resultsByFeed.flat();
+  // 2. Consulta en paralelo a Lupa Supermercados en vivo
+  const lupaPromise = lupaLiveScraper.search(qClean);
+
+  const [feedResults, lupaProducts] = await Promise.all([
+    Promise.all(feedPromises),
+    lupaPromise,
+  ]);
+
+  const allFound = [...feedResults.flat(), ...lupaProducts];
 
   if (allFound.length > 0) {
     return await scraperManager.saveScrapedProducts(allFound);

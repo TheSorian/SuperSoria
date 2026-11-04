@@ -23,13 +23,10 @@ export class ScraperManager {
     // 4. Alcampo Soria / Camaretas (Alimentado con el feed de Alcampo)
     this.registerScraper(new QueFaltaFeedScraper('Alcampo', 'alcampo-camaretas', 'alcampo_products'));
 
-    // 5. Aldi Soria (Alimentado con el feed de Aldi)
-    this.registerScraper(new QueFaltaFeedScraper('Aldi', 'aldi-soria', 'aldi_products'));
-
-    // 6. Lupa Supermercados Soria (Plaza Mariano Granados y provincia)
+    // 5. Lupa Supermercados Soria (Plaza Mariano Granados y provincia)
     this.registerScraper(new LupaScraper());
 
-    // 7. Hipermercado E.Leclerc Soria (Polígono Las Casas y Mariano Vicén)
+    // 6. Hipermercado E.Leclerc Soria (Polígono Las Casas y Mariano Vicén)
     this.registerScraper(new ELeclercScraper());
   }
 

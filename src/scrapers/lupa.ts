@@ -1,3 +1,4 @@
+import * as cheerio from 'cheerio';
 import { ISupermarketScraper, ScrapedProduct } from './types.js';
 
 export class LupaScraper implements ISupermarketScraper {
@@ -5,444 +6,83 @@ export class LupaScraper implements ISupermarketScraper {
   supermarketId = 'lupa-granados'; // Plaza Mariano Granados, Soria
   baseUrl = 'https://www.lupaonline.com';
 
-  private catalog: ScrapedProduct[] = [
-    // Lácteos y Huevos
-    {
-      externalId: 'lupa-leche-fresca-entera',
-      name: 'Leche fresca entera pasteurizada del día Tierra de Sabor 1L',
-      brand: 'Tierra de Sabor / Lupa',
-      format: 'Botella 1L',
-      price: 1.15,
-      referencePrice: 1.15,
-      referenceUnit: 'L',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Leche Fresca',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-leche-fresca-semi',
-      name: 'Leche fresca semidesnatada pasteurizada Tierra de Sabor 1L',
-      brand: 'Tierra de Sabor / Lupa',
-      format: 'Botella 1L',
-      price: 1.12,
-      referencePrice: 1.12,
-      referenceUnit: 'L',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Leche Fresca',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-leche-entera',
-      name: 'Leche entera Lupa Alta Calidad 1L',
-      brand: 'Lupa',
-      format: 'Brik 1L',
-      price: 0.91,
-      referencePrice: 0.91,
-      referenceUnit: 'L',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Leche',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-leche-semi',
-      name: 'Leche semidesnatada Lupa Alta Calidad 1L',
-      brand: 'Lupa',
-      format: 'Brik 1L',
-      price: 0.91,
-      referencePrice: 0.91,
-      referenceUnit: 'L',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Leche',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-leche-desnatada',
-      name: 'Leche desnatada Lupa Alta Calidad 1L',
-      brand: 'Lupa',
-      format: 'Brik 1L',
-      price: 0.91,
-      referencePrice: 0.91,
-      referenceUnit: 'L',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Leche',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-mantequilla-soria-dulce',
-      name: 'Mantequilla Dulce de Soria D.O.P. La Alacena 250g',
-      brand: 'La Alacena de Soria',
-      format: 'Lata 250g',
-      price: 3.35,
-      referencePrice: 13.4,
-      referenceUnit: 'kg',
-      originalPrice: 3.65,
-      isOffer: true,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Mantequilla de Soria',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-mantequilla-soria-natural',
-      name: 'Mantequilla Natural D.O.P. Soria La Alacena 250g',
-      brand: 'La Alacena de Soria',
-      format: 'Pastilla 250g',
-      price: 3.2,
-      referencePrice: 12.8,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1589985270826-4b7bb135bc9d?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Mantequilla',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-huevos-camperos',
-      name: 'Huevos camperos Alteza docena clase L',
-      brand: 'Alteza',
-      format: 'Docena',
-      price: 2.39,
-      referencePrice: 0.2,
-      referenceUnit: 'ud',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1516448620398-c5f44bf9f441?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Huevos',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-queso-curado-castilla',
-      name: 'Queso curado oveja Castellano Alteza cuña',
-      brand: 'Alteza',
-      format: 'Cuña 250g',
-      price: 3.85,
-      referencePrice: 15.4,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1486297678162-eb2a19b0a32d?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Quesos',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-yogur-natural',
-      name: 'Yogur natural Alteza pack 4 x 125g',
-      brand: 'Alteza',
-      format: 'Pack 4',
-      price: 0.95,
-      referencePrice: 1.9,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1488477181946-6428a0291777?w=300',
-      categoryHint: 'Huevos, Leche y Lácteos > Yogures',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
+  private headers = {
+    'User-Agent':
+      'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'es-ES,es;q=0.9',
+  };
 
-    // Carnicería y Charcutería Soriana
-    {
-      externalId: 'lupa-torrezno-hoguera',
-      name: 'Torrezno de Soria precocinado La Hoguera San Pedro Manrique',
-      brand: 'La Hoguera',
-      format: 'Bandeja 450g',
-      price: 5.15,
-      referencePrice: 11.44,
-      referenceUnit: 'kg',
-      originalPrice: 5.8,
-      isOffer: true,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=300',
-      categoryHint: 'Carnicería y Charcutería > Panceta y Torrezno',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-chorizo-soria',
-      name: 'Chorizo sarta dulce La Hoguera de Soria',
-      brand: 'La Hoguera',
-      format: 'Pieza 280g',
-      price: 2.89,
-      referencePrice: 10.32,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1544025162-d76694265947?w=300',
-      categoryHint: 'Carnicería y Charcutería > Embutidos',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-pechuga-pollo',
-      name: 'Filetes de pechuga de pollo limpia bandeja 500g',
-      brand: 'Lupa Carnicería',
-      format: 'Bandeja 500g',
-      price: 3.99,
-      referencePrice: 7.98,
-      referenceUnit: 'kg',
-      originalPrice: 4.45,
-      isOffer: true,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=300',
-      categoryHint: 'Carnicería y Charcutería > Pollo',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-carne-picada-mixta',
-      name: 'Carne picada vacuno y cerdo bandeja 500g',
-      brand: 'Lupa Carnicería',
-      format: 'Bandeja 500g',
-      price: 3.89,
-      referencePrice: 7.78,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1588168333986-5078d3ae3976?w=300',
-      categoryHint: 'Carnicería y Charcutería > Carne picada',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-
-    // Aceites y Despensa
-    {
-      externalId: 'lupa-aceite-oliva-virgen-extra',
-      name: 'Aceite de oliva virgen extra Alteza 1L',
-      brand: 'Alteza',
-      format: 'Botella 1L',
-      price: 7.95,
-      referencePrice: 7.95,
-      referenceUnit: 'L',
-      originalPrice: 8.45,
-      isOffer: true,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=300',
-      categoryHint: 'Aceite, Vinagre y Salsas > Aceite',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-aceite-girasol',
-      name: 'Aceite de girasol refinado Alteza 1L',
-      brand: 'Alteza',
-      format: 'Botella 1L',
-      price: 1.45,
-      referencePrice: 1.45,
-      referenceUnit: 'L',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1474979266404-7eaacbcd87c5?w=300',
-      categoryHint: 'Aceite, Vinagre y Salsas > Aceite girasol',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-arroz-redondo',
-      name: 'Arroz redondo extra Alteza 1kg',
-      brand: 'Alteza',
-      format: 'Paquete 1kg',
-      price: 1.25,
-      referencePrice: 1.25,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1586201375761-83865001e31c?w=300',
-      categoryHint: 'Pasta, Arroz y Legumbres > Arroz',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-macarrones',
-      name: 'Macarrones pluma Alteza 1kg',
-      brand: 'Alteza',
-      format: 'Paquete 1kg',
-      price: 1.15,
-      referencePrice: 1.15,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1621996346565-e3d5d62816f0?w=300',
-      categoryHint: 'Pasta, Arroz y Legumbres > Pasta',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-
-    // Panadería y Frutas
-    {
-      externalId: 'lupa-pan-barra',
-      name: 'Barra de pan tradicional recién horneada',
-      brand: 'Lupa Horno',
-      format: 'Barra 250g',
-      price: 0.52,
-      referencePrice: 2.08,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=300',
-      categoryHint: 'Panadería y Pastelería > Pan',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-platanos-canarias',
-      name: 'Plátano de Canarias I.G.P. granel',
-      brand: 'Plátano de Canarias',
-      format: '1 kg aprox',
-      price: 2.19,
-      referencePrice: 2.19,
-      referenceUnit: 'kg',
-      originalPrice: 2.49,
-      isOffer: true,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=300',
-      categoryHint: 'Frutas y Verduras > Fruta',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-patatas-bolsa',
-      name: 'Patata para freír y cocer bolsa 3kg',
-      brand: 'Alteza Frutería',
-      format: 'Malla 3kg',
-      price: 3.49,
-      referencePrice: 1.16,
-      referenceUnit: 'kg',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1518977676601-b53f82aba655?w=300',
-      categoryHint: 'Frutas y Verduras > Patatas',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-
-    // Bebidas y Vinos de Soria
-    {
-      externalId: 'lupa-vino-silentium-soria',
-      name: 'Vino Ribera del Duero Silentium Crianza (San Esteban de Gormaz, Soria)',
-      brand: 'Bodegas Castillejo de Robledo',
-      format: 'Botella 75cl',
-      price: 7.9,
-      referencePrice: 10.53,
-      referenceUnit: 'L',
-      originalPrice: 8.9,
-      isOffer: true,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1510812431401-41d2bd2722f3?w=300',
-      categoryHint: 'Vinos y Licores > Vino Tinto Ribera de Soria',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-agua-mineral',
-      name: 'Agua mineral natural Alteza 1,5L',
-      brand: 'Alteza',
-      format: 'Botella 1.5L',
-      price: 0.35,
-      referencePrice: 0.23,
-      referenceUnit: 'L',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1548839140-29a749e1bc4e?w=300',
-      categoryHint: 'Agua, Refrescos y Cervezas > Agua',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-cerveza-especial',
-      name: 'Cerveza Mahou Cinco Estrellas lata 33cl',
-      brand: 'Mahou',
-      format: 'Lata 33cl',
-      price: 0.82,
-      referencePrice: 2.48,
-      referenceUnit: 'L',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1608270119335-e10dbbe434f4?w=300',
-      categoryHint: 'Agua, Refrescos y Cervezas > Cerveza',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-
-    // Limpieza
-    {
-      externalId: 'lupa-detergente-gel',
-      name: 'Detergente líquido lavadora Marsella Alteza 40 lavados',
-      brand: 'Alteza',
-      format: 'Botella 40 lavados',
-      price: 3.65,
-      referencePrice: 0.09,
-      referenceUnit: 'ud',
-      originalPrice: 4.1,
-      isOffer: true,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1583947215259-38e31be8751f?w=300',
-      categoryHint: 'Limpieza y Cuidado del Hogar > Detergente',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-    {
-      externalId: 'lupa-papel-higienico',
-      name: 'Papel higiénico suave 3 capas Alteza 12 rollos',
-      brand: 'Alteza',
-      format: 'Pack 12',
-      price: 3.45,
-      referencePrice: 0.28,
-      referenceUnit: 'ud',
-      originalPrice: null,
-      isOffer: false,
-      inStock: true,
-      imageUrl: 'https://images.unsplash.com/photo-1584556812952-905ffd0c611a?w=300',
-      categoryHint: 'Limpieza y Cuidado del Hogar > Papel',
-      externalUrl: 'https://www.lupaonline.com',
-      supermarketId: 'lupa-granados',
-    },
-  ];
-
+  /**
+   * Búsqueda en tiempo real en la tienda online oficial de Lupa Supermercados
+   */
   async search(query: string): Promise<ScrapedProduct[]> {
-    const qLower = query.toLowerCase().trim();
-    return this.catalog.filter(
-      (p) => p.name.toLowerCase().includes(qLower) || p.brand?.toLowerCase().includes(qLower)
-    );
+    const products: ScrapedProduct[] = [];
+    const qClean = query.trim();
+    if (!qClean) return products;
+
+    try {
+      const url = `https://www.lupaonline.com/santander/catalogsearch/result/?q=${encodeURIComponent(qClean)}`;
+      const res = await fetch(url, { headers: this.headers });
+
+      if (!res.ok) {
+        throw new Error(`Lupa HTTP ${res.status}`);
+      }
+
+      const html = await res.text();
+      const $ = cheerio.load(html);
+
+      $('.product-item-info').each((_i, el) => {
+        const name = $(el).find('.product-item-link').text().trim();
+        const priceRaw = $(el).find('[data-price-type="finalPrice"] .price, .price').first().text().trim();
+        const priceNum = parseFloat(priceRaw.replace('€', '').replace(',', '.').trim());
+        const img = $(el).find('.product-image-photo').attr('src') || null;
+        const link = $(el).find('.product-item-link').attr('href') || null;
+
+        if (name && !isNaN(priceNum) && priceNum > 0) {
+          // Extraer marca aproximada si está presente o usar Alteza / Lupa
+          const brandMatch = name.match(/^(Alteza|Selex|Crowe|Monder|Pascual|Danone|Gullón|Central Lechera Asturiana|Moreno Sáez|La Hoguera)\b/i);
+          const brand = brandMatch ? brandMatch[1] : 'Lupa / Marca';
+
+          products.push({
+            externalId: `lupa-${link ? link.split('/').filter(Boolean).pop() : name.slice(0, 20)}`,
+            name: name,
+            brand: brand,
+            format: null,
+            price: priceNum,
+            referencePrice: null,
+            referenceUnit: null,
+            originalPrice: null,
+            isOffer: false,
+            inStock: true,
+            imageUrl: img,
+            categoryHint: null,
+            externalUrl: link || 'https://www.lupaonline.com',
+            supermarketId: this.supermarketId,
+          });
+        }
+      });
+    } catch (err: any) {
+      console.warn('Error en búsqueda en vivo de Lupa:', err.message);
+    }
+
+    return products;
   }
 
-  async scrapePopular(limit = 100): Promise<ScrapedProduct[]> {
-    return this.catalog.slice(0, limit);
+  async scrapePopular(_limit = 50): Promise<ScrapedProduct[]> {
+    // Búsqueda de los términos más comunes en Lupa para poblar catálogo
+    const terms = ['leche', 'aceite', 'pan', 'huevos', 'arroz', 'pasta', 'mantequilla', 'tomate', 'pollo', 'cerveza', 'queso', 'torrezno'];
+    const all: ScrapedProduct[] = [];
+
+    for (const t of terms) {
+      try {
+        const found = await this.search(t);
+        all.push(...found.slice(0, 5));
+      } catch (e: any) {
+        console.warn(`Error en popular Lupa para '${t}':`, e.message);
+      }
+    }
+
+    return all;
   }
 }

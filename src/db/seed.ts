@@ -106,17 +106,6 @@ export async function seedDatabase() {
       website: 'https://www.lidl.es',
       active: true,
     },
-    // Aldi
-    {
-      id: 'aldi-soria',
-      name: 'Aldi - Avda. Europa / Polígono Las Casas',
-      chain: 'Aldi',
-      address: 'Avenida de Europa, s/n',
-      postalCode: '42005',
-      city: 'Soria',
-      website: 'https://www.aldi.es',
-      active: true,
-    },
     // E.Leclerc
     {
       id: 'eleclerc-las-casas',

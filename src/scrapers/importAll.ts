@@ -15,7 +15,6 @@ interface TargetTable {
 const TARGETS: TargetTable[] = [
   { name: 'Lidl Soria', tableName: 'lidl_products', supermarketId: 'lidl-valladolid', maxRecords: 1500 },
   { name: 'Dia Soria', tableName: 'dia_products', supermarketId: 'dia-aguirre', maxRecords: 2000 },
-  { name: 'Aldi Soria', tableName: 'aldi_products', supermarketId: 'aldi-soria', maxRecords: 1500 },
   { name: 'Alcampo Soria / Camaretas', tableName: 'alcampo_products', supermarketId: 'alcampo-camaretas', maxRecords: 2500 },
   { name: 'Mercadona Soria', tableName: 'mercadona_products', supermarketId: 'mercadona-saavedra', maxRecords: 3000 },
 ];

@@ -8,7 +8,6 @@ async function main() {
     { id: 'dia-aguirre', name: 'Dia Soria', limit: 250 },
     { id: 'lidl-valladolid', name: 'Lidl Soria', limit: 250 },
     { id: 'alcampo-camaretas', name: 'Alcampo Soria / Camaretas', limit: 250 },
-    { id: 'aldi-soria', name: 'Aldi Soria', limit: 250 },
     { id: 'lupa-granados', name: 'Lupa Supermercados Soria', limit: 100 },
     { id: 'eleclerc-las-casas', name: 'E.Leclerc Hipermercado Soria', limit: 100 },
   ];
