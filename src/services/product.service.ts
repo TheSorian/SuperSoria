@@ -175,7 +175,10 @@ export class ProductService {
     if (supermarketId) {
       where.prices = {
         some: {
-          supermarketId: supermarketId,
+          OR: [
+            { supermarketId: supermarketId },
+            { supermarket: { chain: { equals: supermarketId } } },
+          ],
         },
       };
     }
@@ -219,20 +222,30 @@ export class ProductService {
       },
     });
 
-    // Enriquecer cada producto con su precio más bajo y supermercado
+    // Enriquecer cada producto con su precio más bajo y supermercado genérico
     const enriched = rawProducts.map((prod) => {
       const sortedPrices = prod.prices.sort((a, b) => a.price - b.price);
       const minPrice = sortedPrices[0]?.price ?? null;
       const maxPrice = sortedPrices[sortedPrices.length - 1]?.price ?? null;
-      const cheapestSupermarket = sortedPrices[0]?.supermarket?.name ?? null;
+      const cheapestSupermarket = sortedPrices[0]?.supermarket?.chain ?? null;
       const priceDifference = minPrice !== null && maxPrice !== null ? +(maxPrice - minPrice).toFixed(2) : 0;
+
+      // Precios unificados por cadena genérica (Mercadona, Dia, Lidl, Alcampo, E.Leclerc, Lupa)
+      const chainPricesMap = new Map<string, { chain: string; price: number; isOffer: boolean }>();
+      for (const p of sortedPrices) {
+        const ch = p.supermarket.chain;
+        if (!chainPricesMap.has(ch) || chainPricesMap.get(ch)!.price > p.price) {
+          chainPricesMap.set(ch, { chain: ch, price: p.price, isOffer: p.isOffer });
+        }
+      }
 
       return {
         ...prod,
         cheapestPrice: minPrice,
         cheapestSupermarket,
+        chainPrices: Array.from(chainPricesMap.values()).sort((a, b) => a.price - b.price),
         priceDifference,
-        availableInSupermarkets: prod.prices.length,
+        availableInSupermarkets: chainPricesMap.size,
       };
     });
 
@@ -292,21 +305,34 @@ export class ProductService {
     const sortedPrices = product.prices.sort((a, b) => a.price - b.price);
     const minPrice = sortedPrices[0]?.price ?? 0;
 
-    const comparisons = sortedPrices.map((p, idx) => ({
-      supermarketId: p.supermarketId,
-      supermarketName: p.supermarket.name,
-      chain: p.supermarket.chain,
-      price: p.price,
-      referencePrice: p.referencePrice,
-      referenceUnit: p.referenceUnit,
-      originalPrice: p.originalPrice,
-      isOffer: p.isOffer,
-      inStock: p.inStock,
-      externalUrl: p.externalUrl,
-      isCheapest: idx === 0,
-      diffWithCheapest: +(p.price - minPrice).toFixed(2),
-      scrapedAt: p.scrapedAt,
-    }));
+    // Agrupar precios por cadena genérica (Mercadona, Dia, Lidl, Alcampo, E.Leclerc, Lupa)
+    const chainMap = new Map<string, any>();
+    for (const p of sortedPrices) {
+      const ch = p.supermarket.chain;
+      if (!chainMap.has(ch) || chainMap.get(ch).price > p.price) {
+        chainMap.set(ch, {
+          supermarketId: p.supermarketId,
+          supermarketName: ch,
+          chain: ch,
+          price: p.price,
+          referencePrice: p.referencePrice,
+          referenceUnit: p.referenceUnit,
+          originalPrice: p.originalPrice,
+          isOffer: p.isOffer,
+          inStock: p.inStock,
+          externalUrl: p.externalUrl,
+          scrapedAt: p.scrapedAt,
+        });
+      }
+    }
+
+    const comparisons = Array.from(chainMap.values())
+      .sort((a, b) => a.price - b.price)
+      .map((c, idx) => ({
+        ...c,
+        isCheapest: idx === 0,
+        diffWithCheapest: +(c.price - minPrice).toFixed(2),
+      }));
 
     return {
       product: {
@@ -338,13 +364,106 @@ export class ProductService {
   }
 
   async getAllSupermarkets() {
-    return prisma.supermarket.findMany({
+    const raw = await prisma.supermarket.findMany({
       orderBy: { chain: 'asc' },
       include: {
         _count: {
           select: { priceRecords: true },
         },
       },
+    });
+
+    // Agrupar en los 6 supermercados genéricos de Soria
+    const genericChains = [
+      {
+        id: 'mercadona',
+        chain: 'Mercadona',
+        name: 'Mercadona',
+        icon: '🟢',
+        color: '#028a47',
+        bgClass: 'bg-emerald-600',
+        lightBg: 'bg-emerald-50',
+        borderClass: 'border-emerald-200',
+        textClass: 'text-emerald-700',
+        description: 'Supermercado líder en alimentación, frescos y marcas propias Hacendado y Bosque Verde.',
+        website: 'https://tienda.mercadona.es/',
+      },
+      {
+        id: 'dia',
+        chain: 'Dia',
+        name: 'Dia',
+        icon: '🔴',
+        color: '#d6140e',
+        bgClass: 'bg-red-600',
+        lightBg: 'bg-red-50',
+        borderClass: 'border-red-200',
+        textClass: 'text-red-700',
+        description: 'Supermercado de proximidad con ofertas semanales Club Dia y marcas propias.',
+        website: 'https://www.dia.es/',
+      },
+      {
+        id: 'alcampo',
+        chain: 'Alcampo',
+        name: 'Alcampo',
+        icon: '🐦',
+        color: '#e11414',
+        bgClass: 'bg-rose-600',
+        lightBg: 'bg-rose-50',
+        borderClass: 'border-rose-200',
+        textClass: 'text-rose-700',
+        description: 'Gran surtido de marcas líderes, gama económica Auchan y productos de Soria.',
+        website: 'https://www.compraonline.alcampo.es/',
+      },
+      {
+        id: 'eleclerc',
+        chain: 'E.Leclerc',
+        name: 'E.Leclerc',
+        icon: '🏢',
+        color: '#0066b3',
+        bgClass: 'bg-indigo-600',
+        lightBg: 'bg-indigo-50',
+        borderClass: 'border-indigo-200',
+        textClass: 'text-indigo-700',
+        description: 'Hipermercado con compra online, marcas propias Marque Repère / Eliges y productos locales.',
+        website: 'https://soria.e-leclerc.es/',
+      },
+      {
+        id: 'lupa',
+        chain: 'Lupa',
+        name: 'Lupa',
+        icon: '🐺',
+        color: '#f59e0b',
+        bgClass: 'bg-amber-500',
+        lightBg: 'bg-amber-50',
+        borderClass: 'border-amber-200',
+        textClass: 'text-amber-700',
+        description: 'Supermercado con carnicería y frescos tradicionales, charcutería y marca Alteza.',
+        website: 'https://www.lupa.com/',
+      },
+      {
+        id: 'lidl',
+        chain: 'Lidl',
+        name: 'Lidl',
+        icon: '🔵',
+        color: '#0050aa',
+        bgClass: 'bg-blue-600',
+        lightBg: 'bg-blue-50',
+        borderClass: 'border-blue-200',
+        textClass: 'text-blue-700',
+        description: 'Precios competitivos, panadería horneada a diario y marcas Milbona y Cien.',
+        website: 'https://www.lidl.es/',
+      },
+    ];
+
+    return genericChains.map((gc) => {
+      const branches = raw.filter((s) => s.chain.toLowerCase() === gc.chain.toLowerCase());
+      const totalPrices = branches.reduce((sum, b) => sum + (b._count?.priceRecords || 0), 0);
+      return {
+        ...gc,
+        branchCount: branches.length,
+        priceRecordsCount: totalPrices,
+        sampleBranchId: branches[0]?.id || gc.id,
+      };
     });
   }
 }

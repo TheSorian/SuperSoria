@@ -98,27 +98,38 @@ router.get('/products/:id/compare', async (req: Request, res: Response) => {
 // Actualizar o registrar precio manualmente (ej: E.Leclerc en tienda o corrección de usuario)
 router.post('/products/:id/price', async (req: Request, res: Response) => {
   try {
-    const { supermarketId, price, isOffer } = req.body;
+    const { supermarketId, chain, price, isOffer } = req.body;
     const numPrice = parseFloat(price);
     if (!numPrice || isNaN(numPrice)) {
       return res.status(400).json({ success: false, error: 'Precio inválido' });
     }
 
+    const smQuery = chain || supermarketId;
+    const smMatch = await prisma.supermarket.findFirst({
+      where: {
+        OR: [
+          { id: smQuery },
+          { chain: { equals: smQuery } },
+        ],
+      },
+    });
+    const targetSupermarketId = smMatch?.id || smQuery;
+
     const existing = await prisma.priceRecord.findFirst({
-      where: { productId: req.params.id, supermarketId },
+      where: { productId: req.params.id, supermarketId: targetSupermarketId },
     });
 
     let record;
     if (existing) {
       record = await prisma.priceRecord.update({
         where: { id: existing.id },
-        data: { price: numPrice, isOffer: Boolean(isOffer), updatedAt: new Date() },
+        data: { price: numPrice, isOffer: Boolean(isOffer), scrapedAt: new Date() },
       });
     } else {
       record = await prisma.priceRecord.create({
         data: {
           productId: req.params.id,
-          supermarketId,
+          supermarketId: targetSupermarketId,
           price: numPrice,
           isOffer: Boolean(isOffer),
         },
