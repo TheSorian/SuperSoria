@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QuéFalta Soria | Comparador y Lista de la Compra</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Heroicons & Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            soria: {
+              50: '#fbf4f4',
+              100: '#f6e7e7',
+              500: '#8b1c1c', // Rojo soriano
+              600: '#751414',
+              700: '#5c0e0e',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    .scrollbar-none::-webkit-scrollbar { display: none; }
+    .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col pb-20 md:pb-6">
+
+  <!-- Header Superior -->
+  <header class="bg-gradient-to-r from-red-700 via-red-800 to-rose-900 text-white shadow-md sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="text-3xl">🛒</span>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight flex items-center gap-2">
+            QuéFalta <span class="bg-amber-400 text-red-950 text-xs px-2 py-0.5 rounded-full font-extrabold uppercase">Soria</span>
+          </h1>
+          <p class="text-xs text-red-100 hidden sm:block">Precios reales en Mercadona, Dia, Lupa, Lidl y Leclerc</p>
+        </div>
+      </div>
+
+      <!-- Métricas rápidas -->
+      <div class="flex items-center space-x-2 text-xs">
+        <div id="stats-badge" class="bg-black/20 backdrop-blur-sm border border-white/20 px-3 py-1.5 rounded-lg flex items-center gap-2">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span id="stat-products">Cargando...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navegación por pestañas -->
+    <div class="max-w-6xl mx-auto px-4 flex border-t border-red-700/60 overflow-x-auto scrollbar-none text-sm font-semibold">
+      <button onclick="switchTab('list')" id="tab-btn-list" class="tab-btn px-4 py-2.5 border-b-2 border-white text-white flex items-center gap-2 whitespace-nowrap">
+        <span>📋</span> Mi Lista Inteligente
+      </button>
+      <button onclick="switchTab('comparator')" id="tab-btn-comparator" class="tab-btn px-4 py-2.5 border-b-2 border-transparent text-red-200 hover:text-white flex items-center gap-2 whitespace-nowrap">
+        <span>🔍</span> Comparador de Precios
+      </button>
+      <button onclick="switchTab('supermarkets')" id="tab-btn-supermarkets" class="tab-btn px-4 py-2.5 border-b-2 border-transparent text-red-200 hover:text-white flex items-center gap-2 whitespace-nowrap">
+        <span>🏪</span> Supers en Soria
+      </button>
+      <button onclick="switchTab('scrapers')" id="tab-btn-scrapers" class="tab-btn px-4 py-2.5 border-b-2 border-transparent text-red-200 hover:text-white flex items-center gap-2 whitespace-nowrap">
+        <span>⚡</span> Scrapers en Vivo
+      </button>
+    </div>
+  </header>
+
+  <!-- Contenedor Principal -->
+  <main class="max-w-6xl mx-auto px-4 py-6 flex-1 w-full">
+
+    <!-- TAB 1: LISTA INTELIGENTE DE LA COMPRA -->
+    <section id="tab-list" class="space-y-6">
+      
+      <!-- Resumen de Cesta más barata -->
+      <div id="basket-comparison-card" class="bg-white border border-slate-200 shadow-sm rounded-2xl p-4 sm:p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div>
+            <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+              <span>🏆</span> Comparativa de tu Cesta en Soria
+            </h2>
+            <p class="text-xs text-slate-500">Calculado en base a los artículos de tu lista actual</p>
+          </div>
+          <span class="text-xs bg-emerald-50 text-emerald-700 font-semibold px-2.5 py-1 rounded-full border border-emerald-200 w-fit">
+            Ahorro garantizado
+          </span>
+        </div>
+        <div id="basket-estimates" class="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
+          <!-- Dinámico -->
+        </div>
+      </div>
+
+      <!-- Formulario para Añadir a la Lista -->
+      <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-4">
+        <form id="add-item-form" onsubmit="handleAddItem(event)" class="flex flex-col sm:flex-row gap-2">
+          <input 
+            type="text" 
+            id="new-item-name" 
+            placeholder="¿Qué falta? Ej: Torreznos de Soria, Leche, Huevos..." 
+            class="flex-1 px-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-600 focus:border-transparent"
+            required
+          />
+          <div class="flex gap-2">
+            <input 
+              type="number" 
+              id="new-item-qty" 
+              value="1" 
+              min="1" 
+              max="99" 
+              class="w-16 px-2 py-2.5 rounded-xl border border-slate-200 text-sm text-center font-bold focus:outline-none focus:ring-2 focus:ring-red-600"
+            />
+            <button 
+              type="submit" 
+              class="bg-red-700 hover:bg-red-800 text-white font-semibold px-5 py-2.5 rounded-xl text-sm flex items-center gap-1.5 transition-colors shadow-sm"
+            >
+              <span>➕</span> Añadir
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Artículos Ordenados por Pasillo / Recorrido Inteligente -->
+      <div class="space-y-4">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-bold text-slate-600 uppercase tracking-wider flex items-center gap-2">
+            <span>🗺️</span> Recorrido óptimo por pasillo
+          </h3>
+          <span id="list-progress" class="text-xs font-semibold text-slate-500">0 completados</span>
+        </div>
+
+        <div id="aisle-groups-container" class="space-y-4">
+          <!-- Cargado por JS -->
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: COMPARADOR DE PRECIOS -->
+    <section id="tab-comparator" class="hidden space-y-6">
+      <!-- Buscador y Filtros -->
+      <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-4 space-y-3">
+        <div class="flex flex-col sm:flex-row gap-3">
+          <div class="relative flex-1">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">🔍</span>
+            <input 
+              type="text" 
+              id="search-query" 
+              oninput="debounceSearch()" 
+              placeholder="Buscar en todos los supermercados de Soria (ej: aceite, leche, mantequilla...)" 
+              class="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+            />
+          </div>
+          <select 
+            id="filter-category" 
+            onchange="loadProducts()" 
+            class="px-3 py-2.5 rounded-xl border border-slate-200 text-sm bg-white text-slate-700 focus:outline-none focus:ring-2 focus:ring-red-600"
+          >
+            <option value="">Todas las secciones</option>
+          </select>
+        </div>
+
+        <!-- Filtro rápido por supermercados de Soria -->
+        <div class="flex items-center gap-2 overflow-x-auto scrollbar-none pt-1" id="supermarket-filter-chips">
+          <button onclick="setSupermarketFilter('')" class="chip-filter active text-xs font-semibold px-3 py-1.5 rounded-full bg-red-700 text-white">Todos</button>
+          <button onclick="setSupermarketFilter('mercadona-saavedra')" class="chip-filter text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">Mercadona</button>
+          <button onclick="setSupermarketFilter('dia-aguirre')" class="chip-filter text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">Dia</button>
+          <button onclick="setSupermarketFilter('lupa-granados')" class="chip-filter text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">Lupa</button>
+          <button onclick="setSupermarketFilter('lidl-valladolid')" class="chip-filter text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">Lidl</button>
+          <button onclick="setSupermarketFilter('eleclerc-las-casas')" class="chip-filter text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">E.Leclerc</button>
+          <button onclick="setSupermarketFilter('alcampo-camaretas')" class="chip-filter text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">Alcampo</button>
+          <button onclick="setSupermarketFilter('aldi-soria')" class="chip-filter text-xs font-semibold px-3 py-1.5 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-700">Aldi</button>
+        </div>
+      </div>
+
+      <!-- Grid de Productos -->
+      <div id="products-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <!-- Generado por JS -->
+      </div>
+    </section>
+
+    <!-- TAB 3: SUPERMERCADOS EN SORIA -->
+    <section id="tab-supermarkets" class="hidden space-y-6">
+      <div>
+        <h2 class="text-lg font-bold text-slate-800">Supermercados e Hipermercados en Soria</h2>
+        <p class="text-xs text-slate-500">Establecimientos registrados y monitoreados para la comparativa de precios local</p>
+      </div>
+
+      <div id="supermarkets-list-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+        <!-- Generado por JS -->
+      </div>
+    </section>
+
+    <!-- TAB 4: SCRAPERS EN VIVO -->
+    <section id="tab-scrapers" class="hidden space-y-6">
+      <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-5 space-y-4">
+        <div>
+          <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <span>⚡</span> Ejecutor de Scrapers en Soria
+          </h2>
+          <p class="text-xs text-slate-500">Dispara la captura y actualización de catálogos y precios en tiempo real</p>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+          <button onclick="triggerScraper('mercadona-saavedra')" class="p-3 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 text-emerald-900 rounded-xl text-center transition flex flex-col items-center">
+            <span class="text-2xl mb-1">🟢</span>
+            <span class="text-xs font-bold">Mercadona</span>
+            <span class="text-[10px] text-emerald-700">Soria CP 42001</span>
+          </button>
+          <button onclick="triggerScraper('dia-aguirre')" class="p-3 bg-red-50 border border-red-200 hover:bg-red-100 text-red-900 rounded-xl text-center transition flex flex-col items-center">
+            <span class="text-2xl mb-1">🔴</span>
+            <span class="text-xs font-bold">Dia Soria</span>
+            <span class="text-[10px] text-red-700">C/ Aguirre</span>
+          </button>
+          <button onclick="triggerScraper('lupa-granados')" class="p-3 bg-amber-50 border border-amber-200 hover:bg-amber-100 text-amber-900 rounded-xl text-center transition flex flex-col items-center">
+            <span class="text-2xl mb-1">🐺</span>
+            <span class="text-xs font-bold">Lupa</span>
+            <span class="text-[10px] text-amber-700">Pl. Mariano Granados</span>
+          </button>
+          <button onclick="triggerScraper('lidl-valladolid')" class="p-3 bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-900 rounded-xl text-center transition flex flex-col items-center">
+            <span class="text-2xl mb-1">🔵</span>
+            <span class="text-xs font-bold">Lidl</span>
+            <span class="text-[10px] text-blue-700">Avda. Valladolid</span>
+          </button>
+          <button onclick="triggerScraper('eleclerc-las-casas')" class="p-3 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 text-indigo-900 rounded-xl text-center transition flex flex-col items-center">
+            <span class="text-2xl mb-1">🏢</span>
+            <span class="text-xs font-bold">E.Leclerc</span>
+            <span class="text-[10px] text-indigo-700">Pol. Las Casas</span>
+          </button>
+          <button onclick="triggerScraper('alcampo-camaretas')" class="p-3 bg-red-50 border border-red-200 hover:bg-red-100 text-red-900 rounded-xl text-center transition flex flex-col items-center">
+            <span class="text-2xl mb-1">🐦</span>
+            <span class="text-xs font-bold">Alcampo</span>
+            <span class="text-[10px] text-red-700">CC Camaretas</span>
+          </button>
+          <button onclick="triggerScraper('aldi-soria')" class="p-3 bg-cyan-50 border border-cyan-200 hover:bg-cyan-100 text-cyan-900 rounded-xl text-center transition flex flex-col items-center">
+            <span class="text-2xl mb-1">🏬</span>
+            <span class="text-xs font-bold">Aldi</span>
+            <span class="text-[10px] text-cyan-700">Avda. Europa</span>
+          </button>
+          <button onclick="triggerScraper('')" class="p-3 bg-slate-900 text-white hover:bg-slate-800 rounded-xl text-center transition flex flex-col items-center">
+            <span class="text-2xl mb-1">🚀</span>
+            <span class="text-xs font-bold">Todos</span>
+            <span class="text-[10px] text-slate-300">Scraping global</span>
+          </button>
+        </div>
+
+        <div id="scraper-status-banner" class="hidden p-3 rounded-xl text-xs font-semibold"></div>
+      </div>
+
+      <!-- Historial de ejecuciones -->
+      <div class="bg-white border border-slate-200 shadow-sm rounded-2xl p-5">
+        <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center gap-2">
+          <span>📜</span> Registros de capturas recientes
+        </h3>
+        <div id="scrape-logs-table" class="overflow-x-auto text-xs">
+          <!-- Generado por JS -->
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal Detalle Comparativa de Producto -->
+  <div id="compare-modal" class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl relative">
+      <button onclick="closeCompareModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg font-bold">✕</button>
+      <div id="compare-modal-content"></div>
+    </div>
+  </div>
+
+  <!-- SCRIPT DE LA APLICACIÓN -->
+  <script>
+    const SHARE_CODE = 'soria-semanal';
+    let currentTab = 'list';
+    let activeSupermarketFilter = '';
+    let searchDebounceTimeout = null;
+
+    // Cambiar pestañas
+    function switchTab(tab) {
+      currentTab = tab;
+      ['list', 'comparator', 'supermarkets', 'scrapers'].forEach(t => {
+        const el = document.getElementById(`tab-${t}`);
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tab) {
+          el.classList.remove('hidden');
+          btn.classList.add('border-white', 'text-white');
+          btn.classList.remove('border-transparent', 'text-red-200');
+        } else {
+          el.classList.add('hidden');
+          btn.classList.remove('border-white', 'text-white');
+          btn.classList.add('border-transparent', 'text-red-200');
+        }
+      });
+
+      if (tab === 'list') loadShoppingList();
+      if (tab === 'comparator') loadProducts();
+      if (tab === 'supermarkets') loadSupermarkets();
+      if (tab === 'scrapers') loadScraperLogs();
+    }
+
+    // Cargar Estadísticas
+    async function loadStats() {
+      try {
+        const res = await fetch('/api/stats');
+        const data = await res.json();
+        if (data.success) {
+          document.getElementById('stat-products').innerText = 
+            `${data.stats.products} productos | ${data.stats.pricesTracked} precios en Soria`;
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // 1. CARGAR LISTA DE LA COMPRA
+    async function loadShoppingList() {
+      try {
+        const res = await fetch(`/api/lists/${SHARE_CODE}`);
+        const data = await res.json();
+        if (!data.success) return;
+
+        // Renderizar comparativa de la cesta
+        const basketDiv = document.getElementById('basket-estimates');
+        const estimates = data.basketEstimates || [];
+        const cheapest = estimates.find(e => e.itemsFound > 0);
+
+        basketDiv.innerHTML = estimates.map(est => {
+          const isWinner = cheapest && est.supermarketId === cheapest.supermarketId && est.total > 0;
+          return `
+            <div class="p-3 rounded-xl border ${isWinner ? 'bg-emerald-50/70 border-emerald-300 ring-2 ring-emerald-500/20' : 'bg-slate-50 border-slate-200'} flex flex-col justify-between">
+              <div>
+                <span class="text-[11px] font-semibold text-slate-500 uppercase block truncate">${est.name}</span>
+                <span class="text-base font-extrabold text-slate-900">${est.total > 0 ? est.total + ' €' : '-'}</span>
+              </div>
+              <span class="text-[10px] ${isWinner ? 'text-emerald-700 font-bold' : 'text-slate-400'} mt-1">
+                ${est.itemsFound} de ${data.totalItems} productos
+              </span>
+            </div>
+          `;
+        }).join('');
+
+        document.getElementById('list-progress').innerText = 
+          `${data.completedItems} de ${data.totalItems} marcados`;
+
+        // Renderizar grupos por pasillo
+        const container = document.getElementById('aisle-groups-container');
+        if (data.groupedByAisle.length === 0) {
+          container.innerHTML = `
+            <div class="text-center py-10 bg-white rounded-2xl border border-dashed border-slate-300 p-6">
+              <span class="text-4xl block mb-2">🎉</span>
+              <p class="font-bold text-slate-700">Tu lista está vacía</p>
+              <p class="text-xs text-slate-400 mt-1">Añade lo que falta usando el formulario superior.</p>
+            </div>
+          `;
+          return;
+        }
+
+        container.innerHTML = data.groupedByAisle.map(group => `
+          <div class="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+            <div class="bg-slate-50/80 px-4 py-2.5 border-b border-slate-100 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="text-base">${group.icon}</span>
+                <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">${group.categoryName}</h4>
+              </div>
+              <span class="text-[11px] font-semibold text-slate-400">${group.items.length}</span>
+            </div>
+            <div class="divide-y divide-slate-100">
+              ${group.items.map(item => renderListItem(item)).join('')}
+            </div>
+          </div>
+        `).join('');
+
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function renderListItem(item) {
+      const prod = item.product;
+      const minPrice = prod?.prices?.[0];
+
+      return `
+        <div class="p-3 sm:px-4 flex items-center justify-between gap-3 hover:bg-slate-50/60 transition ${item.checked ? 'opacity-50' : ''}">
+          <div class="flex items-center gap-3 flex-1 min-w-0">
+            <input 
+              type="checkbox" 
+              ${item.checked ? 'checked' : ''} 
+              onchange="toggleItem('${item.id}')"
+              class="w-5 h-5 rounded-md text-red-600 focus:ring-red-500 cursor-pointer"
+            />
+            <div class="min-w-0 flex-1">
+              <p class="text-sm font-semibold text-slate-800 truncate ${item.checked ? 'line-through text-slate-400' : ''}">
+                ${item.customName}
+              </p>
+              <div class="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                <span>Cant: <strong class="text-slate-600">${item.quantity}</strong></span>
+                ${minPrice ? `
+                  <span>•</span>
+                  <span class="text-emerald-700 font-medium">Desde ${minPrice.price}€ (${minPrice.supermarket.chain})</span>
+                ` : ''}
+              </div>
+            </div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            ${prod ? `
+              <button onclick="openCompareModal('${prod.id}')" title="Ver comparativa de precios" class="p-1.5 text-xs text-slate-500 hover:text-red-700 bg-slate-100 hover:bg-red-50 rounded-lg">
+                🔍
+              </button>
+            ` : ''}
+            <button onclick="deleteItem('${item.id}')" title="Eliminar" class="p-1.5 text-xs text-slate-400 hover:text-red-600 rounded-lg">
+              🗑️
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // Añadir ítem
+    async function handleAddItem(e) {
+      e.preventDefault();
+      const input = document.getElementById('new-item-name');
+      const qtyInput = document.getElementById('new-item-qty');
+      const name = input.value.trim();
+      const qty = parseFloat(qtyInput.value) || 1;
+      if (!name) return;
+
+      try {
+        await fetch(`/api/lists/${SHARE_CODE}/items`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ customName: name, quantity: qty })
+        });
+        input.value = '';
+        qtyInput.value = '1';
+        loadShoppingList();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    async function toggleItem(id) {
+      await fetch(`/api/items/${id}/toggle`, { method: 'PATCH' });
+      loadShoppingList();
+    }
+
+    async function deleteItem(id) {
+      await fetch(`/api/items/${id}`, { method: 'DELETE' });
+      loadShoppingList();
+    }
+
+    // 2. COMPARADOR DE PRODUCTOS
+    async function loadCategories() {
+      try {
+        const res = await fetch('/api/categories');
+        const data = await res.json();
+        const sel = document.getElementById('filter-category');
+        sel.innerHTML = '<option value="">Todas las secciones</option>' + 
+          data.categories.map(c => `<option value="${c.id}">${c.icon} ${c.name} (${c._count.products})</option>`).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function debounceSearch() {
+      clearTimeout(searchDebounceTimeout);
+      searchDebounceTimeout = setTimeout(loadProducts, 300);
+    }
+
+    function setSupermarketFilter(smId) {
+      activeSupermarketFilter = smId;
+      document.querySelectorAll('.chip-filter').forEach(btn => {
+        btn.classList.remove('bg-red-700', 'text-white');
+        btn.classList.add('bg-slate-100', 'text-slate-700');
+      });
+      event.target.classList.add('bg-red-700', 'text-white');
+      event.target.classList.remove('bg-slate-100', 'text-slate-700');
+      loadProducts();
+    }
+
+    async function loadProducts() {
+      const q = document.getElementById('search-query').value.trim();
+      const cat = document.getElementById('filter-category').value;
+      const grid = document.getElementById('products-grid');
+
+      grid.innerHTML = '<div class="col-span-full py-12 text-center text-slate-400">Buscando productos en Soria...</div>';
+
+      try {
+        let url = `/api/products?limit=40`;
+        if (q) url += `&q=${encodeURIComponent(q)}`;
+        if (cat) url += `&category=${cat}`;
+        if (activeSupermarketFilter) url += `&supermarket=${activeSupermarketFilter}`;
+
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (!data.products || data.products.length === 0) {
+          grid.innerHTML = `
+            <div class="col-span-full py-12 text-center bg-white rounded-2xl border border-dashed border-slate-200 p-6">
+              <span class="text-3xl block mb-2">🔍</span>
+              <p class="font-bold text-slate-700">No se encontraron productos</p>
+              <p class="text-xs text-slate-400 mt-1">Prueba con otra palabra o ejecuta un scraper en vivo.</p>
+            </div>
+          `;
+          return;
+        }
+
+        grid.innerHTML = data.products.map(p => {
+          const cheapest = p.cheapestPrice;
+          const bestSm = p.cheapestSupermarket;
+          return `
+            <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col justify-between hover:border-red-300 transition group">
+              <div>
+                <div class="h-32 w-full bg-slate-50 rounded-xl mb-3 overflow-hidden flex items-center justify-center relative">
+                  ${p.imageUrl ? `
+                    <img src="${p.imageUrl}" alt="${p.name}" class="h-full w-full object-contain p-2 group-hover:scale-105 transition" onerror="this.src='https://placehold.co/200x200?text=Soria'"/>
+                  ` : `
+                    <span class="text-4xl text-slate-300">🛒</span>
+                  `}
+                  <span class="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/90 border border-slate-200">
+                    ${p.category?.name || 'General'}
+                  </span>
+                </div>
+
+                <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">${p.brand || 'Marca Blanca'}</p>
+                <h4 class="text-sm font-bold text-slate-800 line-clamp-2 mt-0.5" title="${p.name}">${p.name}</h4>
+                ${p.format ? `<p class="text-xs text-slate-400 mt-0.5">${p.format}</p>` : ''}
+              </div>
+
+              <div class="mt-4 pt-3 border-t border-slate-100 flex items-end justify-between">
+                <div>
+                  <span class="text-[10px] text-slate-400 block">Mejor precio Soria:</span>
+                  <div class="flex items-baseline gap-1">
+                    <span class="text-lg font-black text-emerald-700">${cheapest !== null ? cheapest + ' €' : '-'}</span>
+                  </div>
+                  <span class="text-[11px] font-bold text-slate-600 block truncate max-w-[120px]">${bestSm || ''}</span>
+                </div>
+
+                <div class="flex items-center gap-1.5">
+                  <button onclick="openCompareModal('${p.id}')" title="Comparar precios" class="p-2 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition">
+                    Comparar
+                  </button>
+                  <button onclick="quickAddToList('${p.id}', '${p.name.replace(/'/g, "\\'")}')" title="Añadir a mi lista" class="p-2 text-xs font-bold text-white bg-red-700 hover:bg-red-800 rounded-xl transition">
+                    ➕
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    async function quickAddToList(productId, name) {
+      await fetch(`/api/lists/${SHARE_CODE}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ productId, customName: name, quantity: 1 })
+      });
+      alert(`¡"${name}" añadido a tu lista de la compra!`);
+    }
+
+    // Modal Comparativa
+    async function openCompareModal(productId) {
+      const modal = document.getElementById('compare-modal');
+      const content = document.getElementById('compare-modal-content');
+      modal.classList.remove('hidden');
+      content.innerHTML = '<div class="py-12 text-center text-slate-400">Cargando comparativa en Soria...</div>';
+
+      try {
+        const res = await fetch(`/api/products/${productId}/compare`);
+        const data = await res.json();
+        if (!data.success) return;
+
+        const { product, comparisons, minPrice, savingsPotential } = data.comparison;
+
+        content.innerHTML = `
+          <div class="space-y-4">
+            <div class="flex items-start gap-3">
+              <div class="w-16 h-16 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-center overflow-hidden shrink-0">
+                ${product.imageUrl ? `<img src="${product.imageUrl}" class="w-full h-full object-contain p-1" />` : '🛒'}
+              </div>
+              <div>
+                <span class="text-xs font-bold text-red-700 uppercase">${product.category?.name}</span>
+                <h3 class="text-base font-bold text-slate-900 leading-tight">${product.name}</h3>
+                <p class="text-xs text-slate-400 mt-0.5">${product.brand || ''} ${product.format ? '• ' + product.format : ''}</p>
+              </div>
+            </div>
+
+            ${savingsPotential > 0 ? `
+              <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between text-xs font-bold text-emerald-800">
+                <span>💡 Puedes ahorrar hasta:</span>
+                <span class="text-sm font-black text-emerald-700">${savingsPotential} € comprando en la tienda adecuada</span>
+              </div>
+            ` : ''}
+
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">Precios en establecimientos de Soria:</h4>
+
+            <div class="space-y-2">
+              ${comparisons.map(c => `
+                <div class="p-3 rounded-xl border ${c.isCheapest ? 'border-emerald-400 bg-emerald-50/50' : 'border-slate-200 bg-white'} flex items-center justify-between">
+                  <div>
+                    <div class="flex items-center gap-2">
+                      <span class="text-xs font-bold text-slate-800">${c.supermarketName}</span>
+                      ${c.isCheapest ? `<span class="bg-emerald-600 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded">MÁS BARATO</span>` : ''}
+                      ${c.isOffer ? `<span class="bg-amber-500 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded">OFERTA</span>` : ''}
+                    </div>
+                    <span class="text-[11px] text-slate-400">${c.chain} • Actualizado recientemente</span>
+                  </div>
+                  <div class="text-right">
+                    <span class="text-base font-black ${c.isCheapest ? 'text-emerald-700' : 'text-slate-800'}">${c.price} €</span>
+                    ${c.diffWithCheapest > 0 ? `<span class="text-[10px] text-rose-500 font-semibold block">+${c.diffWithCheapest}€</span>` : ''}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+
+            <button onclick="quickAddToList('${product.id}', '${product.name.replace(/'/g, "\\'")}')" class="w-full mt-4 bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-xl text-sm transition">
+              ➕ Añadir a Mi Lista de la Compra
+            </button>
+          </div>
+        `;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    function closeCompareModal() {
+      document.getElementById('compare-modal').classList.add('hidden');
+    }
+
+    // 3. SUPERMERCADOS EN SORIA
+    async function loadSupermarkets() {
+      const container = document.getElementById('supermarkets-list-grid');
+      try {
+        const res = await fetch('/api/supermarkets');
+        const data = await res.json();
+        container.innerHTML = data.supermarkets.map(sm => `
+          <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-2">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-extrabold px-2.5 py-0.5 rounded-full ${
+                sm.chain === 'Mercadona' ? 'bg-emerald-100 text-emerald-800' :
+                sm.chain === 'Dia' ? 'bg-red-100 text-red-800' :
+                sm.chain === 'Lupa' ? 'bg-amber-100 text-amber-800' :
+                sm.chain === 'Lidl' ? 'bg-blue-100 text-blue-800' :
+                'bg-slate-100 text-slate-800'
+              }">${sm.chain}</span>
+              <span class="text-xs text-slate-400 font-semibold">${sm._count.priceRecords} precios</span>
+            </div>
+            <h4 class="text-sm font-bold text-slate-800">${sm.name}</h4>
+            <p class="text-xs text-slate-500">📍 ${sm.address}</p>
+            <p class="text-[11px] text-slate-400 font-mono">CP: ${sm.postalCode} ${sm.city}</p>
+            ${sm.website ? `
+              <a href="${sm.website}" target="_blank" class="text-xs text-red-700 font-semibold hover:underline block pt-1">
+                Visitar catálogo online →
+              </a>
+            ` : ''}
+          </div>
+        `).join('');
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // 4. SCRAPERS EN VIVO
+    async function triggerScraper(supermarketId) {
+      const banner = document.getElementById('scraper-status-banner');
+      banner.classList.remove('hidden', 'bg-rose-100', 'text-rose-800', 'bg-emerald-100', 'text-emerald-800');
+      banner.classList.add('bg-amber-100', 'text-amber-800');
+      banner.innerText = '⏳ Ejecutando scraper en Soria... Esto puede tardar unos segundos.';
+
+      try {
+        const res = await fetch('/api/scrapers/run', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ supermarketId })
+        });
+        const data = await res.json();
+        if (data.success) {
+          banner.classList.remove('bg-amber-100', 'text-amber-800');
+          banner.classList.add('bg-emerald-100', 'text-emerald-800');
+          banner.innerText = `✅ Scraper completado con éxito. Precios sincronizados.`;
+          loadStats();
+          loadScraperLogs();
+        } else {
+          throw new Error(data.error);
+        }
+      } catch (e) {
+        banner.classList.remove('bg-amber-100', 'text-amber-800');
+        banner.classList.add('bg-rose-100', 'text-rose-800');
+        banner.innerText = `❌ Error: ${e.message}`;
+      }
+    }
+
+    async function loadScraperLogs() {
+      const container = document.getElementById('scrape-logs-table');
+      try {
+        const res = await fetch('/api/scrapers/logs');
+        const data = await res.json();
+        container.innerHTML = `
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="border-b border-slate-200 text-slate-400">
+                <th class="py-2">Supermercado</th>
+                <th class="py-2">Estado</th>
+                <th class="py-2">Items actualizados</th>
+                <th class="py-2">Fecha</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100">
+              ${data.logs.map(l => `
+                <tr>
+                  <td class="py-2 font-semibold text-slate-700">${l.supermarket}</td>
+                  <td class="py-2"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${l.status === 'SUCCESS' ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'}">${l.status}</span></td>
+                  <td class="py-2 text-slate-600">${l.itemsUpdated} / ${l.itemsFound}</td>
+                  <td class="py-2 text-slate-400">${new Date(l.startedAt).toLocaleTimeString()}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    // Inicialización
+    window.addEventListener('DOMContentLoaded', () => {
+      loadStats();
+      loadShoppingList();
+      loadCategories();
+    });
+  </script>
+</body>
+</html>

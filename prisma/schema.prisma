@@ -1,0 +1,104 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Supermarket {
+  id           String        @id
+  name         String
+  chain        String
+  address      String
+  postalCode   String
+  city         String        @default("Soria")
+  website      String?
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  priceRecords PriceRecord[]
+}
+
+model Category {
+  id         String    @id
+  name       String
+  icon       String    @default("🛒")
+  aisleOrder Int       @default(1)
+  products   Product[]
+}
+
+model Product {
+  id          String        @id @default(cuid())
+  name        String
+  brand       String?
+  format      String?
+  ean         String?
+  imageUrl    String?
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  prices      PriceRecord[]
+  listItems   ListItem[]
+
+  @@index([name])
+  @@index([categoryId])
+}
+
+model PriceRecord {
+  id             String      @id @default(cuid())
+  productId      String
+  product        Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  supermarketId  String
+  supermarket    Supermarket @relation(fields: [supermarketId], references: [id], onDelete: Cascade)
+  price          Float
+  referencePrice Float?
+  referenceUnit  String?
+  originalPrice  Float?
+  isOffer        Boolean     @default(false)
+  inStock        Boolean     @default(true)
+  externalUrl    String?
+  scrapedAt      DateTime    @default(now())
+
+  @@index([productId])
+  @@index([supermarketId])
+}
+
+model ShoppingList {
+  id        String     @id @default(cuid())
+  title     String
+  shareCode String     @unique @default(cuid())
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  items     ListItem[]
+}
+
+model ListItem {
+  id                  String        @id @default(cuid())
+  listId              String
+  list                ShoppingList  @relation(fields: [listId], references: [id], onDelete: Cascade)
+  productId           String?
+  product             Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+  customName          String?
+  quantity            Float         @default(1)
+  checked             Boolean       @default(false)
+  notes               String?
+  targetSupermarketId String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+
+  @@index([listId])
+}
+
+model ScrapeLog {
+  id           String    @id @default(cuid())
+  supermarket  String
+  status       String
+  itemsFound   Int       @default(0)
+  itemsUpdated Int       @default(0)
+  message      String?
+  startedAt    DateTime  @default(now())
+  finishedAt   DateTime?
+}
