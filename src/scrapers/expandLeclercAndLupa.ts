@@ -82,6 +82,7 @@ export async function crawlELeclercSoria(importer: FastBatchImporter): Promise<n
     { code: '10', slug: 'perfumeria-y-belleza', name: 'Perfumería y Belleza' },
     { code: '11', slug: 'limpieza-y-hogar', name: 'Limpieza y Hogar' },
     { code: '12', slug: 'bazar', name: 'Bazar' },
+    { code: '13', slug: 'electro', name: 'Electro' },
   ];
 
   // A) Productos Sorianos Oficiales
@@ -128,9 +129,11 @@ export async function crawlELeclercSoria(importer: FastBatchImporter): Promise<n
         }
       });
 
-      // Paginación vía AJAX (páginas 1 a 6 = hasta 140 artículos por categoría)
+      // Paginación continua vía AJAX hasta agotar la categoría
       if (filterVal) {
-        for (let pNum = 1; pNum <= 6; pNum++) {
+        let pNum = 1;
+        let emptyStreak = 0;
+        while (pNum <= 150) {
           try {
             const params = new URLSearchParams({
               accion: 'obtenerMasproductosFood',
@@ -160,8 +163,14 @@ export async function crawlELeclercSoria(importer: FastBatchImporter): Promise<n
             });
 
             if (!ajaxRes.ok) break;
-            const json: any = await ajaxRes.json();
-            if (json.resultado === 'ok' && json.html) {
+            let json: any = null;
+            try {
+              json = await ajaxRes.json();
+            } catch {
+              break;
+            }
+
+            if (json && json.resultado === 'ok' && json.html && json.html.trim().length > 0) {
               const $ajax = cheerio.load(json.html);
               let addedThisPage = 0;
               $ajax('.articulo').each((_j, el) => {
@@ -173,7 +182,14 @@ export async function crawlELeclercSoria(importer: FastBatchImporter): Promise<n
                   addedThisPage++;
                 }
               });
-              if (addedThisPage === 0) break;
+              if (addedThisPage === 0) {
+                emptyStreak++;
+                if (emptyStreak >= 2) break;
+              } else {
+                emptyStreak = 0;
+              }
+              pNum++;
+              await new Promise(r => setTimeout(r, 60));
             } else {
               break;
             }
