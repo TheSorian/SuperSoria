@@ -1,8 +1,9 @@
 import prisma from '../db/prisma.js';
+import { searchLiveFeedsAcrossAllSupermarkets } from '../scrapers/liveSearch.js';
 
 export class ProductService {
   /**
-   * Busca productos con filtros opcionales
+   * Busca productos con filtros opcionales y búsqueda en vivo multi-supermercado
    */
   async searchProducts(params: {
     query?: string;
@@ -10,15 +11,26 @@ export class ProductService {
     supermarketId?: string;
     limit?: number;
     offset?: number;
+    liveSync?: boolean;
   }) {
-    const { query, categoryId, supermarketId, limit = 50, offset = 0 } = params;
+    const { query, categoryId, supermarketId, limit = 50, offset = 0, liveSync = true } = params;
+
+    // Si el usuario introduce una búsqueda y liveSync está activo,
+    // consultamos los feeds de todos los supermercados para no perdernos ningún producto.
+    if (liveSync && query && query.trim().length >= 2) {
+      try {
+        await searchLiveFeedsAcrossAllSupermarkets(query.trim());
+      } catch (err: any) {
+        console.warn('Error en búsqueda en vivo:', err.message);
+      }
+    }
 
     const where: any = {};
 
     if (query && query.trim()) {
       where.OR = [
-        { name: { contains: query } },
-        { brand: { contains: query } },
+        { name: { contains: query.trim() } },
+        { brand: { contains: query.trim() } },
       ];
     }
 
