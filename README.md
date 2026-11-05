@@ -1,7 +1,7 @@
-# 🛒 QuéFalta Soria
+# 🛒 SuperSoria
 
-> **Versión propia de QuéFalta adaptada a los supermercados de Soria (Castilla y León, España)**  
-> Comparador de precios en tiempo real, listas de la compra colaborativas e inteligentes ordenadas por pasillo, y motor de scraping automatizado.
+> **Comparador de precios inteligente y cesta de la compra para todos los supermercados de Soria (Castilla y León, España)**  
+> 47.000+ productos monitorizados en Mercadona, Dia, Alcampo, E.Leclerc, Lupa y Lidl. Motor de scraping diario automatizado con GitHub Actions y app móvil Android (Capacitor).
 
 ---
 
