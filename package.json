@@ -1,7 +1,7 @@
 {
-  "name": "quefaltasoria",
+  "name": "supersoria",
   "version": "1.0.0",
-  "description": "QueFalta Soria - Comparador de precios y listas de la compra para supermercados en Soria",
+  "description": "SuperSoria - Comparador de precios y cesta de la compra para supermercados en Soria",
   "main": "dist/index.js",
   "scripts": {
     "dev": "tsx watch src/index.ts",

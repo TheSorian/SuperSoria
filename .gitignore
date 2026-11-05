@@ -1,5 +1,9 @@
 node_modules/
 dist/
 .env
-dev.db-journal
 *.log
+prisma/*.db-journal
+prisma/*.db-shm
+prisma/*.db-wal
+android/
+.capacitor/

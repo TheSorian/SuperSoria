@@ -59,13 +59,13 @@ app.get('*', (_req, res) => {
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`
 ╔═══════════════════════════════════════════════════════════════╗
-║                 🛒 QUEFALTA SORIA BACKEND & APP               ║
+║                 🛒 SUPERSORIA BACKEND & APP                   ║
 ╠═══════════════════════════════════════════════════════════════╣
 ║  • En este PC:        http://localhost:${PORT}                  ║
 ║  • En Red Local / Móvil: http://${localIp}:${PORT}            ║
 ║  • Servidor API:      http://${localIp}:${PORT}/api             ║
 ║  • Supermercados:     Mercadona, Dia, Lupa, Lidl, Leclerc     ║
-║  • Base de datos:     SQLite (35.000+ productos de Soria)     ║
+║  • Base de datos:     SQLite (47.000+ productos de Soria)     ║
 ║  • Ciudad:            Soria (CP 42001 - 42005)                ║
 ╚═══════════════════════════════════════════════════════════════╝
 
