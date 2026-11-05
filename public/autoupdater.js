@@ -5,7 +5,7 @@
 
 const GITHUB_REPO = 'TheSorian/SuperSoria';
 const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/TheSorian/SuperSoria/master';
-const CURRENT_APP_VERSION = '1.1.0';
+const CURRENT_APP_VERSION = '1.2.0';
 
 /**
  * Compara dos versiones semver (p. ej. "1.2.0" y "1.1.0")
