@@ -1,0 +1,13 @@
+{
+  "appId": "es.supersoria.app",
+  "appName": "SuperSoria",
+  "webDir": "public",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  }
+}

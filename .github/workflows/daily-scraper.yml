@@ -1,0 +1,57 @@
+name: Actualización Diaria de Precios SuperSoria
+
+on:
+  schedule:
+    # Se ejecuta todos los días a las 04:00 AM UTC
+    - cron: '0 4 * * *'
+  workflow_dispatch: # Permite ejecutarlo manualmente con 1 clic desde GitHub
+
+permissions:
+  contents: write
+
+jobs:
+  update-prices:
+    name: Rastrear Precios y Publicar Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout del Repositorio
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Instalar Dependencias
+        run: npm ci
+
+      - name: Ejecutar Rastreador Completo de E.Leclerc Soria
+        run: npx tsx scripts/scrape_full_eleclerc_soria.ts
+
+      - name: Generar Paquete Comprimido de Base de Datos
+        run: npx tsx scripts/export_database_release.ts
+
+      - name: Publicar / Actualizar GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest-data
+          name: 'SuperSoria - Precios Actualizados'
+          body: |
+            📦 Paquete oficial de base de datos de SuperSoria.
+            - Actualizado automáticamente por GitHub Actions.
+            - Incluye todos los precios y productos de Mercadona, Dia, Alcampo, E.Leclerc, Lupa y Lidl en Soria.
+          files: |
+            dist-release/supersoria-db.sqlite.gz
+            dist-release/metadata.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Guardar Base de Datos Actualizada en el Repositorio
+        run: |
+          git config --global user.name "SuperSoria Bot"
+          git config --global user.email "bot@supersoria.es"
+          git add prisma/dev.db
+          git diff-index --quiet HEAD || git commit -m "chore(db): actualización automática de precios [skip ci]"
+          git push

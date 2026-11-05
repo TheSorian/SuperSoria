@@ -1,9 +1,17 @@
 node_modules/
 dist/
+dist-release/
 .env
 *.log
 prisma/*.db-journal
 prisma/*.db-shm
 prisma/*.db-wal
-android/
+# Android build artifacts
+android/.gradle/
+android/build/
+android/app/build/
+android/.idea/
+android/*.iml
+android/app/*.iml
+android/local.properties
 .capacitor/
