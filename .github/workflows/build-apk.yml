@@ -20,11 +20,11 @@ jobs:
       - name: Checkout del Repositorio
         uses: actions/checkout@v4
 
-      - name: Configurar Java 17 (Temurin)
+      - name: Configurar Java 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
 
       - name: Configurar Node.js 22 (LTS)
         uses: actions/setup-node@v4
