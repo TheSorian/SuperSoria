@@ -3,6 +3,8 @@ name: Compilar APK Android SuperSoria
 on:
   workflow_dispatch: # Permite compilar el APK con 1 clic desde GitHub
   push:
+    branches:
+      - master
     tags:
       - 'v*' # Compila automáticamente cuando se crea una etiqueta de versión (ej. v1.0.0)
 
