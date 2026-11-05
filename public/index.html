@@ -470,7 +470,7 @@
               <div class="flex items-center gap-2">
                 <h3 class="text-sm font-black text-slate-900 tracking-tight">Actualización del APK (Android)</h3>
                 <span id="apk-version-badge" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-wider">
-                  v1.2.1
+                  v1.2.2
                 </span>
               </div>
               <p class="text-xs text-slate-500 mt-0.5">Versión instalada en tu dispositivo</p>
@@ -564,7 +564,7 @@
           Comparador de precios inteligente para todos los supermercados de Soria (CP 42001 - 42005).
         </p>
         <div class="pt-1 flex items-center justify-center gap-3 text-xs text-slate-400">
-          <span class="font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">v1.2.1</span>
+          <span class="font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">v1.2.2</span>
           <span>•</span>
           <a href="https://github.com/TheSorian/SuperSoria" target="_blank" class="text-blue-600 hover:underline font-bold flex items-center gap-1">
             <span>🐙</span> GitHub
@@ -585,6 +585,16 @@
     <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-5 shadow-2xl relative animate-slide-down">
       <button onclick="closeCompareModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg font-black w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition">✕</button>
       <div id="compare-modal-content"></div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: DESGLOSE DE CESTA ÓPTIMA Y AHORRO   -->
+  <!-- ========================================== -->
+  <div id="optimal-breakdown-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl relative animate-slide-down">
+      <button onclick="closeOptimalBreakdownModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg font-black w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition cursor-pointer">✕</button>
+      <div id="optimal-breakdown-content"></div>
     </div>
   </div>
 
@@ -778,9 +788,9 @@
       // Banner Cesta Óptima
       if (optimal && optimal.total > 0) {
         optimalBadge.innerHTML = `
-          <span class="text-xs bg-emerald-100 text-emerald-800 font-bold px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 shadow-xs">
+          <button onclick="openOptimalBreakdownModal()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 shadow-xs transition cursor-pointer">
             <span>⭐</span> Cesta óptima: ${optimal.total} €
-          </span>
+          </button>
         `;
         optimalBadge.classList.remove('hidden');
 
@@ -789,18 +799,18 @@
             <span class="text-2xl p-2 bg-white rounded-2xl shadow-xs border border-emerald-200">🏆</span>
             <div>
               <div class="flex items-center gap-2">
-                <span class="text-xs font-black text-emerald-900 uppercase tracking-wider">Cesta Óptima:</span>
+                <span class="text-xs font-black text-emerald-900 uppercase tracking-wider">Cesta Óptima Multisuper:</span>
                 <span class="text-base font-black text-emerald-700">${optimal.total} €</span>
               </div>
               <p class="text-xs text-emerald-800">
                 ${optimal.potentialSavings > 0 
-                  ? `Comprando en el más barato te ahorras hasta <strong class="text-emerald-950 font-black">${optimal.potentialSavings} €</strong> en tu compra.` 
+                  ? `Comprando cada producto donde es más barato te ahorras hasta <strong class="text-emerald-950 font-black">${optimal.potentialSavings} €</strong> en tu compra.` 
                   : 'Todos tus artículos calculados al mejor precio disponible en Soria.'}
               </p>
             </div>
           </div>
-          <button onclick="setListStoreFilter('')" class="text-xs font-bold px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white transition self-end sm:self-center shadow-xs">
-            Ver desglose
+          <button onclick="openOptimalBreakdownModal()" class="text-xs font-black px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition self-end sm:self-center shadow-xs flex items-center gap-1.5 cursor-pointer">
+            <span>📋</span> Ver desglose
           </button>
         `;
         optimalBanner.classList.remove('hidden');
@@ -809,7 +819,7 @@
         optimalBadge.classList.add('hidden');
       }
 
-      // Tarjetas por Supermercado Genérico
+      // Tarjetas por Supermercado en Soria
       const validEstimates = estimates.filter(e => e.itemsFound > 0);
       const cheapestChain = validEstimates.length > 0 ? validEstimates.reduce((min, cur) => cur.total < min.total ? cur : min) : null;
 
@@ -817,6 +827,9 @@
         const style = getChainStyle(est.chain);
         const isWinner = cheapestChain && est.chain.toLowerCase() === cheapestChain.chain.toLowerCase() && est.total > 0;
         const isActiveFilter = activeListStoreFilter.toLowerCase() === est.chain.toLowerCase();
+        const exactCount = est.exactCount ?? est.itemsFound ?? 0;
+        const altCount = est.altCount ?? 0;
+        const missingCount = est.missingCount ?? (data.totalItems - est.itemsFound);
 
         return `
           <div 
@@ -836,10 +849,10 @@
                 </span>
                 ${isWinner ? '<span class="text-[9px] font-black bg-emerald-600 text-white px-1.5 py-0.2 rounded-full uppercase">Top</span>' : ''}
               </div>
-              <span class="text-base font-black text-slate-900 block mt-0.5">${est.total > 0 ? est.total + ' €' : '-'}</span>
+              <span class="text-base font-black text-slate-900 block mt-0.5">${est.total > 0 ? est.total.toFixed(2) + ' €' : '-'}</span>
             </div>
-            <span class="text-[10px] ${est.itemsFound === data.totalItems && est.total > 0 ? 'text-emerald-700 font-bold' : 'text-slate-400'} mt-1 block">
-              ${est.itemsFound} de ${data.totalItems} prods
+            <span class="text-[10px] mt-1 block leading-tight ${missingCount === 0 && est.total > 0 ? 'text-emerald-700 font-bold' : 'text-slate-500'}">
+              ${exactCount} exactos${altCount > 0 ? ` + <strong class="text-indigo-700 font-bold">${altCount} eq</strong>` : ''}${missingCount > 0 ? ` • <span class="text-rose-600 font-bold">faltan ${missingCount}</span>` : ''}
             </span>
           </div>
         `;
@@ -869,6 +882,9 @@
 
       const style = getChainStyle(activeListStoreFilter);
       const chainEst = data.basketEstimates?.byChain?.find(c => c.chain.toLowerCase() === activeListStoreFilter.toLowerCase());
+      const exactCount = chainEst?.exactCount ?? chainEst?.itemsFound ?? 0;
+      const altCount = chainEst?.altCount ?? 0;
+      const missingCount = chainEst?.missingCount ?? chainEst?.missingItems?.length ?? 0;
 
       banner.className = `p-4 rounded-2xl border ${style.lightBg} ${style.border} flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs`;
       banner.innerHTML = `
@@ -877,11 +893,11 @@
           <div>
             <div class="flex items-center gap-2">
               <span class="font-black text-sm ${style.textCol}">Modo Compra en ${activeListStoreFilter}</span>
-              ${chainEst?.total ? `<span class="bg-white border border-slate-200 text-slate-900 font-extrabold px-2 py-0.5 rounded-lg">Cesta: ${chainEst.total} €</span>` : ''}
+              ${chainEst?.total ? `<span class="bg-white border border-slate-200 text-slate-900 font-extrabold px-2 py-0.5 rounded-lg">Cesta: ${chainEst.total.toFixed(2)} €</span>` : ''}
             </div>
             <p class="text-slate-600 mt-0.5">
-              ${chainEst ? `${chainEst.itemsFound} de ${data.totalItems} productos disponibles en este supermercado.` : ''}
-              ${chainEst?.missingItems?.length > 0 ? `⚠️ Faltan ${chainEst.missingItems.length} productos no encontrados aquí.` : ''}
+              ${exactCount} productos exactos${altCount > 0 ? `, <strong class="text-indigo-700 font-bold">${altCount} alternativas equivalentes</strong>` : ''}.
+              ${missingCount > 0 ? `<span class="text-rose-700 font-bold ml-1">⚠️ ${missingCount} no disponibles en este súper (0.00 € no sumados al total).</span>` : ''}
             </p>
           </div>
         </div>
@@ -908,13 +924,7 @@
       }
 
       container.innerHTML = data.groupedByAisle.map(group => {
-        const visibleItems = activeListStoreFilter 
-          ? group.items.filter(item => {
-              if (!item.product) return true;
-              return item.product.prices?.some(p => p.supermarket?.chain?.toLowerCase() === activeListStoreFilter.toLowerCase());
-            })
-          : group.items;
-
+        const visibleItems = group.items;
         if (visibleItems.length === 0) return '';
 
         return `
@@ -942,22 +952,64 @@
     function renderShoppingListItem(item) {
       const prod = item.product;
       const prices = prod?.prices || [];
-      
-      let targetPriceRecord = null;
+      const qty = item.quantity || 1;
+
+      let status = 'exact'; // 'exact', 'alternative', 'unavailable'
+      let displayChain = '';
+      let displayPrice = 0;
+      let displayTotal = 0;
+      let displayRefPrice = null;
+      let displayRefUnit = null;
+      let altInfo = null;
+
       if (activeListStoreFilter) {
-        targetPriceRecord = prices.find(p => p.supermarket?.chain?.toLowerCase() === activeListStoreFilter.toLowerCase());
-      }
-      if (!targetPriceRecord && prices.length > 0) {
-        targetPriceRecord = prices[0];
+        displayChain = activeListStoreFilter;
+        const avail = item.storeAvailability?.[activeListStoreFilter] || 
+                      item.storeAvailability?.[Object.keys(item.storeAvailability || {}).find(k => k.toLowerCase() === activeListStoreFilter.toLowerCase())];
+
+        if (avail) {
+          status = avail.status;
+          displayPrice = avail.price || 0;
+          displayRefPrice = avail.referencePrice;
+          displayRefUnit = avail.referenceUnit;
+          altInfo = avail.altProduct;
+        } else {
+          const exact = prices.find(p => p.supermarket?.chain?.toLowerCase() === activeListStoreFilter.toLowerCase());
+          if (exact) {
+            status = 'exact';
+            displayPrice = exact.price;
+            displayRefPrice = exact.referencePrice;
+            displayRefUnit = exact.referenceUnit;
+          } else {
+            status = 'unavailable';
+            displayPrice = 0;
+          }
+        }
+        displayTotal = +(displayPrice * qty).toFixed(2);
+      } else {
+        // Modo 'Todos' (Cesta general / óptima)
+        if (prices.length > 0) {
+          const cheapest = prices[0];
+          status = 'exact';
+          displayChain = cheapest.supermarket?.chain || 'Soria';
+          displayPrice = cheapest.price;
+          displayTotal = +(cheapest.price * qty).toFixed(2);
+          displayRefPrice = cheapest.referencePrice;
+          displayRefUnit = cheapest.referenceUnit;
+        } else {
+          status = 'unavailable';
+          displayChain = 'Soria';
+          displayPrice = 0;
+          displayTotal = 0;
+        }
       }
 
-      const unitPrice = targetPriceRecord?.price;
-      const totalPrice = unitPrice ? +(unitPrice * item.quantity).toFixed(2) : null;
-      const chain = targetPriceRecord?.supermarket?.chain || 'Soria';
-      const style = getChainStyle(chain);
+      const style = getChainStyle(displayChain);
 
       return `
-        <div class="p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition ${item.checked ? 'bg-slate-50/80 opacity-60' : ''}">
+        <div class="p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition ${
+          item.checked ? 'bg-slate-50/80 opacity-60' : status === 'unavailable' && activeListStoreFilter ? 'bg-rose-50/20' : ''
+        }">
           
           <!-- Izquierda: Checkbox + Miniatura + Texto -->
           <div class="flex items-center gap-3.5 flex-1 min-w-0">
@@ -968,13 +1020,16 @@
               class="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
             />
 
-            <!-- Imagen del Producto -->
-            <div class="w-12 h-12 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-center overflow-hidden shrink-0">
-              ${prod?.imageUrl ? `
-                <img src="${prod.imageUrl}" alt="${item.customName}" class="w-full h-full object-contain p-1" onerror="this.src='https://placehold.co/100x100?text=Soria'"/>
+            <!-- Imagen del Producto (o de la alternativa si aplica) -->
+            <div class="w-12 h-12 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-center overflow-hidden shrink-0 relative">
+              ${(altInfo?.imageUrl || prod?.imageUrl) ? `
+                <img src="${altInfo?.imageUrl || prod?.imageUrl}" alt="${item.customName}" class="w-full h-full object-contain p-1" onerror="this.src='https://placehold.co/100x100?text=Soria'"/>
               ` : `
                 <span class="text-xl text-slate-300">🛒</span>
               `}
+              ${status === 'alternative' ? `
+                <span class="absolute bottom-0 right-0 bg-indigo-600 text-white text-[8px] px-1 rounded-tl-md font-black">Eq</span>
+              ` : ''}
             </div>
 
             <!-- Detalles del Producto -->
@@ -983,20 +1038,43 @@
                 ${item.customName}
               </p>
               
+              <!-- Si es una alternativa equivalente en este súper -->
+              ${status === 'alternative' && altInfo ? `
+                <div class="mt-0.5 text-[11px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200/80 inline-flex items-center gap-1 max-w-full">
+                  <span class="font-black shrink-0">🔄 Alternativa:</span> 
+                  <span class="truncate">${altInfo.name}</span>
+                </div>
+              ` : ''}
+
+              <!-- Si no está disponible en este súper -->
+              ${status === 'unavailable' && activeListStoreFilter ? `
+                <div class="mt-0.5 text-[11px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200/80 inline-flex items-center gap-1 font-bold">
+                  <span>❌ No disponible en ${activeListStoreFilter}</span>
+                  <span class="text-[10px] text-rose-500 font-medium">(0.00 € no sumado)</span>
+                </div>
+              ` : ''}
+
               <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                ${prod?.brand ? `<span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${prod.brand}</span>` : ''}
+                ${prod?.brand && status !== 'alternative' ? `<span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${prod.brand}</span>` : ''}
                 ${prod?.format ? `<span class="text-[10px] text-slate-400">• ${prod.format}</span>` : ''}
                 
-                ${targetPriceRecord ? `
+                ${status === 'exact' ? `
                   <span class="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${style.bg} ${style.text}">
-                    <span>${style.icon}</span> ${chain}
+                    <span>${style.icon}</span> ${displayChain}
                   </span>
                   <span class="text-xs font-black text-slate-800">
-                    ${formatPriceDisplay(unitPrice, targetPriceRecord.referencePrice, targetPriceRecord.referenceUnit, prod?.format, prod?.categoryId).main} ${item.quantity > 1 ? `<span class="text-[10px] font-medium text-slate-400">(Total: ${totalPrice} €)</span>` : ''}
+                    ${displayPrice.toFixed(2)} € ${qty > 1 ? `<span class="text-[10px] font-medium text-slate-400">(Total: ${displayTotal.toFixed(2)} €)</span>` : ''}
                   </span>
-                ` : `
+                ` : status === 'alternative' ? `
+                  <span class="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
+                    <span>${style.icon}</span> ${displayChain}
+                  </span>
+                  <span class="text-xs font-black text-indigo-900">
+                    ${displayPrice.toFixed(2)} € ${qty > 1 ? `<span class="text-[10px] font-medium text-indigo-500">(Total: ${displayTotal.toFixed(2)} €)</span>` : ''}
+                  </span>
+                ` : !activeListStoreFilter ? `
                   <span class="text-[10px] font-medium text-slate-400 italic">Sin precio vinculado</span>
-                `}
+                ` : ''}
               </div>
             </div>
           </div>
@@ -1033,6 +1111,13 @@
               title="Eliminar de la lista" 
               class="p-2 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
             >
+              🗑️
+            </button>
+          </div>
+
+        </div>
+      `;
+    }
               🗑️
             </button>
           </div>
@@ -1561,6 +1646,201 @@
     }
 
     // ====================================================
+    // MODAL DESGLOSE DE CESTA ÓPTIMA Y AHORRO MULTISUPER
+    // ====================================================
+    function openOptimalBreakdownModal() {
+      const data = currentListData;
+      if (!data || !data.basketEstimates) {
+        showToast('Añade productos a la lista para ver el desglose.');
+        return;
+      }
+
+      const optimal = data.basketEstimates.optimal || {};
+      const storeEstimates = data.basketEstimates.byChain || [];
+      const plan = optimal.plan || [];
+
+      const modal = document.getElementById('optimal-breakdown-modal');
+      const content = document.getElementById('optimal-breakdown-content');
+
+      // Agrupar plan óptimo por supermercado
+      const storeGroups = {};
+      for (const item of plan) {
+        const store = item.bestStore || 'Soria';
+        if (!storeGroups[store]) {
+          storeGroups[store] = {
+            store,
+            items: [],
+            subtotal: 0,
+          };
+        }
+        storeGroups[store].items.push(item);
+        storeGroups[store].subtotal += item.subtotal;
+      }
+
+      const storeKeys = Object.keys(storeGroups);
+
+      content.innerHTML = `
+        <div class="space-y-5">
+          <!-- Encabezado con métricas de ahorro -->
+          <div class="border-b border-slate-100 pb-4">
+            <div class="flex items-center gap-3">
+              <span class="text-3xl p-2.5 bg-emerald-50 text-emerald-600 rounded-2xl border border-emerald-200 shadow-xs">🏆</span>
+              <div>
+                <h3 class="text-base sm:text-lg font-black text-slate-900">Desglose de Cesta Óptima</h3>
+                <p class="text-xs text-slate-500">Comprando cada producto donde es más barato en Soria</p>
+              </div>
+            </div>
+
+            <!-- Resumen numérico -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2.5 mt-4">
+              <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-center shadow-xs">
+                <span class="text-[10px] font-black uppercase text-emerald-800 tracking-wider block">Total Cesta</span>
+                <span class="text-lg sm:text-xl font-black text-emerald-700">${optimal.total || 0} €</span>
+              </div>
+              <div class="p-3 bg-blue-50 rounded-2xl border border-blue-200 text-center shadow-xs">
+                <span class="text-[10px] font-black uppercase text-blue-800 tracking-wider block">Ahorro Máximo</span>
+                <span class="text-lg sm:text-xl font-black text-blue-700">${optimal.potentialSavings || 0} €</span>
+              </div>
+              <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-center col-span-2 sm:col-span-1 shadow-xs">
+                <span class="text-[10px] font-black uppercase text-slate-600 tracking-wider block">Paradas en Soria</span>
+                <span class="text-lg sm:text-xl font-black text-slate-800">${storeKeys.length} súper${storeKeys.length === 1 ? '' : 's'}</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Dónde comprar cada producto agrupado por tienda -->
+          <div class="space-y-3.5">
+            <h4 class="text-xs font-black uppercase text-slate-500 tracking-wider">Dónde comprar cada artículo:</h4>
+            ${storeKeys.length === 0 ? `
+              <p class="text-xs text-slate-400 italic py-4 text-center">No hay productos en la cesta todavía.</p>
+            ` : storeKeys.map(storeName => {
+              const grp = storeGroups[storeName];
+              const style = getChainStyle(storeName);
+              return `
+                <div class="bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden">
+                  <div class="px-4 py-2.5 ${style.lightBg || 'bg-slate-50'} border-b border-slate-200/80 flex items-center justify-between">
+                    <span class="text-xs font-black ${style.textCol || 'text-slate-800'} flex items-center gap-1.5">
+                      <span>${style.icon}</span> ${storeName}
+                      <span class="text-[10px] bg-white border border-slate-200 font-bold px-2 py-0.5 rounded-full text-slate-600 shadow-2xs">
+                        ${grp.items.length} ${grp.items.length === 1 ? 'artículo' : 'artículos'}
+                      </span>
+                    </span>
+                    <span class="text-xs font-black text-slate-900">${grp.subtotal.toFixed(2)} €</span>
+                  </div>
+                  <div class="divide-y divide-slate-100 p-2 sm:p-3 space-y-1">
+                    ${grp.items.map(it => `
+                      <div class="py-1.5 px-2 flex items-center justify-between text-xs hover:bg-slate-50 rounded-xl transition">
+                        <div class="min-w-0 pr-2">
+                          <p class="font-bold text-slate-800 truncate">${it.quantity > 1 ? `<span class="text-blue-700">${it.quantity}x</span> ` : ''}${it.productName}</p>
+                          ${it.isAlternative && it.altName ? `
+                            <p class="text-[11px] text-indigo-600 flex items-center gap-1 mt-0.5">
+                              <span>🔄</span> Alternativa: ${it.altName}
+                            </p>
+                          ` : ''}
+                        </div>
+                        <div class="text-right shrink-0">
+                          <span class="font-black text-slate-900 block">${it.subtotal.toFixed(2)} €</span>
+                          ${it.quantity > 1 ? `<span class="text-[10px] text-slate-400">(${it.price.toFixed(2)} €/ud)</span>` : ''}
+                        </div>
+                      </div>
+                    `).join('')}
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+
+          <!-- Comparativa si compras todo en un solo súper -->
+          <div class="space-y-2.5 pt-2 border-t border-slate-100">
+            <h4 class="text-xs font-black uppercase text-slate-500 tracking-wider">O si compras todo en un solo supermercado:</h4>
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              ${storeEstimates.map(est => {
+                const style = getChainStyle(est.chain);
+                return `
+                  <div 
+                    onclick="closeOptimalBreakdownModal(); setListStoreFilter('${est.chain}')"
+                    class="p-2.5 rounded-xl border border-slate-200 hover:border-blue-400 hover:bg-blue-50/40 cursor-pointer transition text-center shadow-2xs"
+                    title="Ver lista adaptada a ${est.chain}"
+                  >
+                    <span class="text-xs font-black ${style.textCol} flex items-center justify-center gap-1 truncate">
+                      <span>${style.icon}</span> ${est.chain}
+                    </span>
+                    <span class="text-sm font-black text-slate-900 block mt-1">${est.total > 0 ? est.total.toFixed(2) + ' €' : '-'}</span>
+                    <span class="text-[10px] ${est.missingCount === 0 ? 'text-emerald-700 font-bold' : 'text-amber-700 font-medium'} block leading-tight mt-0.5">
+                      ${est.missingCount === 0 ? '✓ Todos disponibles' : `⚠️ Faltan ${est.missingCount}`}
+                    </span>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+
+          <!-- Botones de Acción -->
+          <div class="pt-3 border-t border-slate-100 flex flex-col sm:flex-row gap-2 justify-end">
+            <button 
+              onclick="shareOptimalPlanWhatsApp()" 
+              class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-xs transition cursor-pointer"
+            >
+              <span>📲</span> Compartir por WhatsApp
+            </button>
+            <button 
+              onclick="closeOptimalBreakdownModal()" 
+              class="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition cursor-pointer"
+            >
+              Cerrar
+            </button>
+          </div>
+        </div>
+      `;
+
+      modal.classList.remove('hidden');
+    }
+
+    function closeOptimalBreakdownModal() {
+      const modal = document.getElementById('optimal-breakdown-modal');
+      if (modal) modal.classList.add('hidden');
+    }
+
+    function shareOptimalPlanWhatsApp() {
+      const data = currentListData;
+      if (!data || !data.basketEstimates) return;
+      const optimal = data.basketEstimates.optimal || {};
+      const plan = optimal.plan || [];
+
+      const storeGroups = {};
+      for (const item of plan) {
+        const store = item.bestStore || 'Supermercado';
+        if (!storeGroups[store]) storeGroups[store] = [];
+        storeGroups[store].push(item);
+      }
+
+      let text = `🛒 *SuperSoria - Mi Cesta Óptima Multisuper*\n`;
+      text += `💰 *Total óptimo:* ${optimal.total || 0} €\n`;
+      if (optimal.potentialSavings > 0) {
+        text += `🎉 *Ahorro conseguido:* ${optimal.potentialSavings} €\n`;
+      }
+      text += `\n📍 *Plan de compra en Soria:*\n`;
+
+      for (const [store, items] of Object.entries(storeGroups)) {
+        const storeSubtotal = items.reduce((sum, i) => sum + i.subtotal, 0).toFixed(2);
+        text += `\n🏪 *${store}* (${storeSubtotal} €):\n`;
+        for (const item of items) {
+          text += `  • ${item.quantity > 1 ? item.quantity + 'x ' : ''}${item.productName}: ${item.price.toFixed(2)} €`;
+          if (item.quantity > 1) text += ` (${item.subtotal.toFixed(2)} €)`;
+          if (item.isAlternative && item.altName) {
+            text += ` [🔄 Alternativa: ${item.altName}]`;
+          }
+          text += `\n`;
+        }
+      }
+
+      text += `\n🌾 SuperSoria - Precios reales de Soria`;
+
+      const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
+      window.open(url, '_blank');
+    }
+
+    // ====================================================
     // TAB 3: SUPERMERCADOS GENÉRICOS EN SORIA
     // ====================================================
     async function loadSupermarkets() {
@@ -1775,6 +2055,16 @@
       if (dropdown && !dropdown.contains(e.target) && e.target !== input) {
         dropdown.classList.add('hidden');
       }
+
+      const optModal = document.getElementById('optimal-breakdown-modal');
+      if (optModal && e.target === optModal) {
+        closeOptimalBreakdownModal();
+      }
+
+      const compModal = document.getElementById('compare-modal');
+      if (compModal && e.target === compModal) {
+        closeCompareModal();
+      }
     });
 
     // Funciones para apertura en móvil / Red Local
@@ -1851,7 +2141,7 @@
           showToast(`¡Nueva versión ${info.latestVersion} disponible!`, '🚀');
         } else {
           if (badge) {
-            badge.innerText = 'v1.2.1';
+            badge.innerText = 'v1.2.2';
             badge.className = 'px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-full uppercase tracking-wider';
           }
           feedback.classList.remove('hidden', 'bg-rose-50', 'text-rose-800', 'bg-blue-50', 'text-blue-900');

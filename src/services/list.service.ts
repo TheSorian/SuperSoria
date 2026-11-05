@@ -220,7 +220,41 @@ export class ListService {
           chainEstimates[ch].total += +(bestPrice * itemQty).toFixed(2);
           chainEstimates[ch].itemsFound += 1;
         } else {
-          chainEstimates[ch].missingItems.push(item.product?.name || item.customName);
+          // Intentar buscar alternativa en esa cadena
+          let altFound = false;
+          if (item.product?.name) {
+            const cleanTokens = item.product.name.toLowerCase()
+              .replace(/[^\wáéíóúñ\s]/gi, ' ')
+              .split(/\s+/)
+              .filter((t: string) => t.length > 2);
+            if (cleanTokens.length >= 2) {
+              const alt = await prisma.product.findFirst({
+                where: {
+                  id: { not: item.product.id },
+                  name: { contains: cleanTokens[0] },
+                  AND: [
+                    { name: { contains: cleanTokens[1] } },
+                    { prices: { some: { supermarket: { chain: { equals: ch } } } } },
+                  ],
+                },
+                include: {
+                  prices: {
+                    where: { supermarket: { chain: { equals: ch } } },
+                    orderBy: { price: 'asc' },
+                  },
+                },
+              });
+              if (alt && alt.prices.length > 0) {
+                chainEstimates[ch].total += +(alt.prices[0].price * itemQty).toFixed(2);
+                chainEstimates[ch].itemsFound += 1;
+                altFound = true;
+              }
+            }
+          }
+          if (!altFound) {
+            // NO DISPONIBLE: NO SUMAR AL TOTAL
+            chainEstimates[ch].missingItems.push(item.product?.name || item.customName);
+          }
         }
       }
 

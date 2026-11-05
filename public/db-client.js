@@ -403,6 +403,131 @@ class SuperSoriaClientDB {
     };
   }
 
+  // Busca un producto sustituto / alternativo equivalente en una cadena de supermercado
+  findAlternativeInChain(product, chain) {
+    if (!this.db || !product) return null;
+
+    const stopWords = new Set([
+      'de', 'la', 'el', 'en', 'con', 'y', 'a', 'para', 'del', 'los', 'las', 'un', 'una', 'al',
+      '1l', '1kg', '2l', '5l', '500g', '100g', 'pack', 'ud', 'uds', 'gr', 'grs', 'botella',
+      'brik', 'brick', 'lata', 'tarro', 'bolsa', 'tubo', 'sobre', 'cristal', 'unidad', 'producto'
+    ]);
+
+    const brandName = (product.brand || '').toLowerCase();
+    const cleanTokens = (product.name || '')
+      .toLowerCase()
+      .replace(/[^\wáéíóúñ\s]/gi, ' ')
+      .split(/\s+/)
+      .filter((t) => t.length > 2 && !stopWords.has(t) && (!brandName || !brandName.includes(t)));
+
+    if (cleanTokens.length === 0) return null;
+
+    let alt = null;
+
+    // 1. Prioridad: Misma categoría y coincide en los 2 primeros términos principales
+    if (cleanTokens.length >= 2 && product.categoryId) {
+      try {
+        const q1 = this.db.prepare(`
+          SELECT p.id, p.name, p.brand, p.format, p.imageUrl, pr.price, pr.referencePrice, pr.referenceUnit, s.chain
+          FROM Product p
+          JOIN PriceRecord pr ON p.id = pr.productId
+          JOIN Supermarket s ON pr.supermarketId = s.id
+          WHERE LOWER(s.chain) = LOWER(?)
+            AND p.id != ?
+            AND p.categoryId = ?
+            AND LOWER(p.name) LIKE ?
+            AND LOWER(p.name) LIKE ?
+          ORDER BY 
+            CASE WHEN LOWER(p.name) LIKE ? THEN 0 ELSE 1 END,
+            pr.price ASC
+          LIMIT 1
+        `);
+        q1.bind([
+          chain,
+          product.id,
+          product.categoryId,
+          '%' + cleanTokens[0] + '%',
+          '%' + cleanTokens[1] + '%',
+          cleanTokens[0] + '%'
+        ]);
+        if (q1.step()) {
+          alt = q1.getAsObject();
+        }
+        q1.free();
+      } catch (e) {
+        console.error('Error q1 findAlternative:', e);
+      }
+    }
+
+    // 2. Coincide en los 2 términos principales aunque no tengamos categoría
+    if (!alt && cleanTokens.length >= 2) {
+      try {
+        const q2 = this.db.prepare(`
+          SELECT p.id, p.name, p.brand, p.format, p.imageUrl, pr.price, pr.referencePrice, pr.referenceUnit, s.chain
+          FROM Product p
+          JOIN PriceRecord pr ON p.id = pr.productId
+          JOIN Supermarket s ON pr.supermarketId = s.id
+          WHERE LOWER(s.chain) = LOWER(?)
+            AND p.id != ?
+            AND LOWER(p.name) LIKE ?
+            AND LOWER(p.name) LIKE ?
+          ORDER BY 
+            CASE WHEN LOWER(p.name) LIKE ? THEN 0 ELSE 1 END,
+            pr.price ASC
+          LIMIT 1
+        `);
+        q2.bind([
+          chain,
+          product.id,
+          '%' + cleanTokens[0] + '%',
+          '%' + cleanTokens[1] + '%',
+          cleanTokens[0] + '%'
+        ]);
+        if (q2.step()) {
+          alt = q2.getAsObject();
+        }
+        q2.free();
+      } catch (e) {
+        console.error('Error q2 findAlternative:', e);
+      }
+    }
+
+    // 3. Si solo hay 1 término limpio (e.g. "azúcar", "sal") y coincide en misma categoría
+    if (!alt && cleanTokens.length === 1 && product.categoryId) {
+      try {
+        const q3 = this.db.prepare(`
+          SELECT p.id, p.name, p.brand, p.format, p.imageUrl, pr.price, pr.referencePrice, pr.referenceUnit, s.chain
+          FROM Product p
+          JOIN PriceRecord pr ON p.id = pr.productId
+          JOIN Supermarket s ON pr.supermarketId = s.id
+          WHERE LOWER(s.chain) = LOWER(?)
+            AND p.id != ?
+            AND p.categoryId = ?
+            AND LOWER(p.name) LIKE ?
+          ORDER BY 
+            CASE WHEN LOWER(p.name) LIKE ? THEN 0 ELSE 1 END,
+            pr.price ASC
+          LIMIT 1
+        `);
+        q3.bind([
+          chain,
+          product.id,
+          product.categoryId,
+          '%' + cleanTokens[0] + '%',
+          cleanTokens[0] + '%'
+        ]);
+        if (q3.step()) {
+          alt = q3.getAsObject();
+        }
+        q3.free();
+      } catch (e) {
+        console.error('Error q3 findAlternative:', e);
+      }
+    }
+
+    return alt;
+  }
+
   // --- GESTIÓN DE LA LISTA DE LA COMPRA EN LOCALSTORAGE ---
 
   getShoppingListItems() {
@@ -429,6 +554,56 @@ class SuperSoriaClientDB {
         const comp = this.getProductPriceComparison(item.productId);
         if (comp) product = comp.product;
       }
+
+      // Evaluar disponibilidad y alternativas por cada cadena de Soria
+      const storeAvailability = {};
+      for (const chain of CHAINS) {
+        const directPrice = product?.prices?.find((p) => p.supermarket?.chain?.toLowerCase() === chain.toLowerCase());
+        if (directPrice) {
+          storeAvailability[chain] = {
+            status: 'exact',
+            price: directPrice.price,
+            referencePrice: directPrice.referencePrice,
+            referenceUnit: directPrice.referenceUnit,
+            altProduct: null,
+          };
+        } else if (product && this.db) {
+          const alt = this.findAlternativeInChain(product, chain);
+          if (alt) {
+            storeAvailability[chain] = {
+              status: 'alternative',
+              price: alt.price,
+              referencePrice: alt.referencePrice,
+              referenceUnit: alt.referenceUnit,
+              altProduct: {
+                id: alt.id,
+                name: alt.name,
+                brand: alt.brand,
+                format: alt.format,
+                imageUrl: alt.imageUrl,
+                price: alt.price,
+              },
+            };
+          } else {
+            storeAvailability[chain] = {
+              status: 'unavailable',
+              price: 0,
+              referencePrice: null,
+              referenceUnit: null,
+              altProduct: null,
+            };
+          }
+        } else {
+          storeAvailability[chain] = {
+            status: 'unavailable',
+            price: 0,
+            referencePrice: null,
+            referenceUnit: null,
+            altProduct: null,
+          };
+        }
+      }
+
       return {
         id: item.id,
         productId: item.productId || null,
@@ -436,6 +611,7 @@ class SuperSoriaClientDB {
         quantity: Math.max(1, Number(item.quantity) || 1),
         checked: Boolean(item.checked),
         product,
+        storeAvailability,
       };
     });
 
@@ -471,21 +647,32 @@ class SuperSoriaClientDB {
       });
     }
 
-    // Calcular coste por supermercado genérico
+    // Calcular coste por supermercado en Soria
     const storeEstimates = CHAINS.map((chain) => {
       let total = 0;
-      let itemsFound = 0;
+      let exactCount = 0;
+      let altCount = 0;
+      let missingCount = 0;
       const missingItems = [];
+      const alternativeItems = [];
 
       for (const item of enrichedItems) {
-        const storePrice = item.product?.prices?.find((p) => p.supermarket?.chain?.toLowerCase() === chain.toLowerCase());
-        if (storePrice) {
-          total += storePrice.price * item.quantity;
-          itemsFound++;
+        const avail = item.storeAvailability[chain];
+        if (avail?.status === 'exact') {
+          total += avail.price * item.quantity;
+          exactCount++;
+        } else if (avail?.status === 'alternative') {
+          total += avail.price * item.quantity;
+          altCount++;
+          alternativeItems.push({
+            original: item.customName,
+            alternative: avail.altProduct.name,
+            price: avail.price,
+          });
         } else {
+          // NO DISPONIBLE: NO SUMAR NADA AL TOTAL (0.00 €)
+          missingCount++;
           missingItems.push(item.customName);
-          const fallback = item.product?.prices?.[0]?.price || 0;
-          total += fallback * item.quantity;
         }
       }
 
@@ -493,33 +680,88 @@ class SuperSoriaClientDB {
         chain,
         total: +total.toFixed(2),
         totalCost: +total.toFixed(2),
-        itemsFound,
+        itemsFound: exactCount + altCount,
+        exactCount,
+        altCount,
+        missingCount,
         missingItems,
-        isComplete: missingItems.length === 0,
+        alternativeItems,
+        isComplete: missingCount === 0,
       };
-    }).sort((a, b) => a.total - b.total);
+    }).sort((a, b) => {
+      // Priorizar los supermercados con todos los productos disponibles, y luego los más baratos
+      if (a.missingCount !== b.missingCount) {
+        return a.missingCount - b.missingCount;
+      }
+      return a.total - b.total;
+    });
 
-    // Calcular cesta óptima (comprando cada producto en el más barato)
+    // Calcular cesta óptima (comprando cada producto en el súper más barato de Soria)
     let optimalTotal = 0;
     const optimalPlan = [];
+
     for (const item of enrichedItems) {
-      if (item.product && item.product.prices && item.product.prices.length > 0) {
-        const best = item.product.prices[0];
-        const cost = +(best.price * item.quantity).toFixed(2);
-        optimalTotal += cost;
-        optimalPlan.push({
-          productName: item.product.name,
-          bestStore: best.supermarket?.chain || 'Soria',
-          price: best.price,
+      let bestOption = null;
+
+      // 1. Mirar si hay precios exactos en alguna cadena
+      const exactPrices = item.product?.prices || [];
+      if (exactPrices.length > 0) {
+        const sortedExact = [...exactPrices].sort((a, b) => a.price - b.price);
+        const bestExact = sortedExact[0];
+        const cost = +(bestExact.price * item.quantity).toFixed(2);
+        bestOption = {
+          productName: item.customName,
+          bestStore: bestExact.supermarket?.chain || 'Soria',
+          price: bestExact.price,
+          referencePrice: bestExact.referencePrice,
+          referenceUnit: bestExact.referenceUnit,
           quantity: item.quantity,
           subtotal: cost,
-        });
+          isAlternative: false,
+          altName: null,
+          imageUrl: item.product?.imageUrl || null,
+        };
+      } else {
+        // 2. Si no hay exacto, comprobar si hay alternativa equivalente
+        let bestAlt = null;
+        for (const chain of CHAINS) {
+          const avail = item.storeAvailability?.[chain];
+          if (avail?.status === 'alternative') {
+            if (!bestAlt || avail.price < bestAlt.price) {
+              bestAlt = { chain, ...avail };
+            }
+          }
+        }
+        if (bestAlt) {
+          const cost = +(bestAlt.price * item.quantity).toFixed(2);
+          bestOption = {
+            productName: item.customName,
+            bestStore: bestAlt.chain,
+            price: bestAlt.price,
+            referencePrice: bestAlt.referencePrice,
+            referenceUnit: bestAlt.referenceUnit,
+            quantity: item.quantity,
+            subtotal: cost,
+            isAlternative: true,
+            altName: bestAlt.altProduct?.name || null,
+            imageUrl: bestAlt.altProduct?.imageUrl || item.product?.imageUrl || null,
+          };
+        }
+      }
+
+      if (bestOption) {
+        optimalTotal += bestOption.subtotal;
+        optimalPlan.push(bestOption);
       }
     }
 
     optimalTotal = +optimalTotal.toFixed(2);
-    const singleStoreBest = storeEstimates[0]?.total || 0;
-    const savings = singleStoreBest > optimalTotal ? +(singleStoreBest - optimalTotal).toFixed(2) : 0;
+
+    // Calcular ahorro frente a comprar toda la cesta en un solo supermercado completo
+    const completeStores = storeEstimates.filter((s) => s.isComplete && s.total > 0);
+    const benchmarkStore = completeStores.length > 0 ? completeStores[0] : storeEstimates[0];
+    const benchmarkTotal = benchmarkStore?.total || 0;
+    const savings = benchmarkTotal > optimalTotal ? +(benchmarkTotal - optimalTotal).toFixed(2) : 0;
 
     return {
       success: true,
@@ -544,11 +786,11 @@ class SuperSoriaClientDB {
       },
       comparison: {
         storeEstimates,
-        cheapestStore: storeEstimates[0]?.chain || 'Mercadona',
-        cheapestSingleCost: singleStoreBest,
+        cheapestStore: benchmarkStore?.chain || storeEstimates[0]?.chain || 'Mercadona',
+        cheapestSingleCost: benchmarkTotal,
         optimalTotal,
         savingsAmount: savings,
-        savingsPercent: singleStoreBest > 0 ? Math.round((savings / singleStoreBest) * 100) : 0,
+        savingsPercent: benchmarkTotal > 0 ? Math.round((savings / benchmarkTotal) * 100) : 0,
         optimalPlan,
       },
     };
