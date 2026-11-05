@@ -5,6 +5,9 @@ on:
     # Se ejecuta todos los días a las 04:00 AM UTC
     - cron: '0 4 * * *'
   workflow_dispatch: # Permite ejecutarlo manualmente con 1 clic desde GitHub
+  push:
+    paths:
+      - '.github/workflows/daily-scraper.yml'
 
 permissions:
   contents: write
