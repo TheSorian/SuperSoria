@@ -70,7 +70,7 @@ async function exportRelease() {
       totalPriceRecords,
       supermarkets: superBreakdown,
     },
-    downloadUrl: 'https://github.com/REPLACE_OWNER/supersoria/releases/latest/download/supersoria-db.sqlite.gz',
+    downloadUrl: 'https://github.com/TheSorian/SuperSoria/releases/latest/download/supersoria-db.sqlite.gz',
   };
 
   const metaPath = path.join(outDir, 'metadata.json');
