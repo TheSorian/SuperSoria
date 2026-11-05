@@ -1,6 +1,6 @@
 {
   "name": "supersoria",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "description": "SuperSoria - Comparador de precios y cesta de la compra para supermercados en Soria",
   "main": "dist/index.js",
   "scripts": {
@@ -35,7 +35,8 @@
     "cors": "^2.8.6",
     "dotenv": "^18.0.9",
     "express": "^4.21.2",
-    "node-cron": "^4.6.0"
+    "node-cron": "^4.6.0",
+    "sql.js": "^1.15.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",

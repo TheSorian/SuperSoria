@@ -35,6 +35,13 @@ jobs:
       - name: Instalar Dependencias
         run: npm ci
 
+      - name: Preparar base de datos offline y motor SQLite WASM
+        run: |
+          mkdir -p public/assets public/vendor
+          cp prisma/dev.db public/assets/supersoria.db
+          cp node_modules/sql.js/dist/sql-wasm.js public/vendor/
+          cp node_modules/sql.js/dist/sql-wasm.wasm public/vendor/
+
       - name: Sincronizar Plataforma Android de Capacitor
         run: npx cap sync android
 

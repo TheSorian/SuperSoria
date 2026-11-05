@@ -14,6 +14,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="vendor/sql-wasm.js"></script>
+  <script src="db-client.js"></script>
   <script src="autoupdater.js"></script>
   <script>
     tailwind.config = {
@@ -83,11 +85,12 @@
           <span id="stat-products" class="font-bold text-slate-700 text-[11px]">Cargando catálogo...</span>
         </div>
         <button 
+          id="btn-mobile-modal"
           onclick="openMobileModal()" 
-          class="bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold px-3 py-1.5 rounded-xl flex items-center gap-1.5 transition shadow-xs"
+          class="hidden md:flex bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 font-bold px-3 py-1.5 rounded-xl items-center gap-1.5 transition shadow-xs"
           title="Abrir en el móvil vía Wi-Fi local"
         >
-          <span>📱</span> <span class="hidden sm:inline">Móvil</span>
+          <span>📱</span> <span>Móvil</span>
         </button>
       </div>
     </div>
@@ -1868,7 +1871,26 @@
     }
 
     // Inicialización al cargar la página
-    window.addEventListener('DOMContentLoaded', () => {
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Ocultar botón de QR en entorno nativo móvil
+      if (window.Capacitor?.isNativePlatform()) {
+        const qrBtn = document.getElementById('btn-mobile-modal');
+        if (qrBtn) qrBtn.remove();
+      }
+
+      // Si estamos en la app móvil nativa, inicializar SQLite local
+      const isNative = Boolean(window.Capacitor?.isNativePlatform()) || window.location.protocol === 'file:';
+      if (isNative && window.superSoriaClientDB) {
+        try {
+          await window.superSoriaClientDB.init((msg) => {
+            const st = document.getElementById('stat-products');
+            if (st) st.innerText = msg;
+          });
+        } catch (e) {
+          console.warn('Init local DB error:', e);
+        }
+      }
+
       loadStats();
       loadShoppingList();
       loadCategories();

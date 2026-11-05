@@ -8,6 +8,7 @@ dist-release/*.db
 prisma/*.db-journal
 prisma/*.db-shm
 prisma/*.db-wal
+public/assets/supersoria.db
 # Android build artifacts
 android/.gradle/
 android/build/

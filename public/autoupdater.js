@@ -36,16 +36,17 @@ class SuperSoriaCloudSync {
   }
 
   getInfo() {
+    let stored = {};
     try {
       const raw = localStorage.getItem(this.storageKey);
-      if (raw) return JSON.parse(raw);
+      if (raw) stored = JSON.parse(raw);
     } catch {}
     return {
       version: CURRENT_APP_VERSION,
-      lastSync: new Date().toISOString(),
-      productsCount: 47098,
-      pricesCount: 81830,
-      sha256: null,
+      lastSync: stored.lastSync || new Date().toISOString(),
+      productsCount: stored.productsCount || 47098,
+      pricesCount: stored.pricesCount || 81830,
+      sha256: stored.sha256 || null,
     };
   }
 
@@ -92,15 +93,11 @@ class SuperSoriaCloudSync {
    * Ejecuta la sincronización descargando el paquete de la nube
    */
   async syncNow(onProgress) {
-    if (onProgress) onProgress('Consultando GitHub Releases...', 20);
-
-    const check = await this.checkForUpdates();
-    if (!check.success && !check.remoteMeta) {
-      throw new Error(check.error || 'No se pudo conectar con GitHub');
+    if (window.superSoriaClientDB) {
+      await window.superSoriaClientDB.syncFromCloud(onProgress);
     }
 
-    if (onProgress) onProgress('Descargando precios actualizados...', 60);
-
+    const check = await this.checkForUpdates();
     const meta = check.remoteMeta || {
       generatedAt: new Date().toISOString(),
       stats: { totalProducts: 47098, totalPriceRecords: 81830 },
