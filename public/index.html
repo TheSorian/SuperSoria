@@ -4,6 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>SuperSoria | Comparador de Supermercados y Ahorro</title>
+  <!-- Favicon y App Icons -->
+  <link rel="icon" type="image/png" href="assets/icon-192.png">
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="assets/icon-512.png">
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts: Plus Jakarta Sans -->
@@ -62,9 +66,7 @@
   <header class="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-xs">
     <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
       <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center text-xl shadow-md shadow-blue-500/20 font-black">
-          🛒
-        </div>
+        <img src="assets/icon-192.png" alt="SuperSoria Logo" class="w-10 h-10 rounded-2xl shadow-md shadow-blue-500/10 object-cover border border-slate-100" />
         <div>
           <div class="flex items-center gap-2">
             <h1 class="text-lg font-black text-slate-900 tracking-tight">SuperSoria</h1>
@@ -106,6 +108,30 @@
       </button>
     </div>
   </header>
+
+  <!-- ========================================== -->
+  <!-- BANNER DE ACTUALIZACIÓN DEL APK DISPONIBLE -->
+  <!-- ========================================== -->
+  <div id="app-update-banner" class="hidden bg-gradient-to-r from-blue-700 via-indigo-600 to-blue-800 text-white shadow-md animate-slide-down sticky top-[57px] md:top-[105px] z-30">
+    <div class="max-w-6xl mx-auto px-4 py-2 flex items-center justify-between gap-3 text-xs sm:text-sm">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <span class="text-base sm:text-lg animate-bounce">🚀</span>
+        <div class="truncate">
+          <span class="font-black">¡Nueva versión disponible!</span>
+          <span id="app-update-version-tag" class="ml-1 px-1.5 py-0.5 bg-white/20 rounded font-mono text-[11px] font-bold">v1.2.0</span>
+          <span class="hidden sm:inline text-blue-100 ml-1.5">Hay una actualización de SuperSoria lista para instalar.</span>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <a id="app-update-download-btn" href="#" target="_blank" class="bg-white hover:bg-blue-50 text-blue-800 font-black px-3 py-1.5 rounded-xl shadow-xs text-xs transition flex items-center gap-1 active:scale-95 cursor-pointer">
+          <span>📥</span> Instalar APK
+        </a>
+        <button onclick="dismissAppUpdateBanner()" class="text-white/80 hover:text-white p-1 rounded-lg text-xs hover:bg-white/10 transition cursor-pointer" title="Cerrar aviso">
+          ✕
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- Navegación Inferior para Móviles (Bottom Nav Bar estilo App) -->
   <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t border-slate-200 z-40 px-2 py-1 flex items-center justify-around shadow-lg">
@@ -430,7 +456,48 @@
         </div>
       </div>
 
-      <!-- 2. HERRAMIENTAS Y ACCIONES DE LA LISTA -->
+      <!-- 2. TARJETA: ACTUALIZACIÓN DE LA APLICACIÓN (APK) -->
+      <div class="bg-white border border-slate-200/90 shadow-sm rounded-3xl p-5 space-y-4">
+        <div class="flex items-start justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl shrink-0">
+              📱
+            </div>
+            <div>
+              <div class="flex items-center gap-2">
+                <h3 class="text-sm font-black text-slate-900 tracking-tight">Actualización del APK (Android)</h3>
+                <span id="apk-version-badge" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-wider">
+                  v1.1.0
+                </span>
+              </div>
+              <p class="text-xs text-slate-500 mt-0.5">Versión instalada en tu dispositivo</p>
+            </div>
+          </div>
+          <span class="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-extrabold rounded-full shrink-0">
+            Instalada
+          </span>
+        </div>
+
+        <p class="text-xs text-slate-600 leading-relaxed">
+          Cuando publicamos una nueva versión en GitHub con mejoras de diseño o nuevos supermercados, puedes actualizar la app en 1 clic manteniendo intactas tus listas de la compra.
+        </p>
+
+        <!-- Botón de comprobación del APK -->
+        <div class="space-y-2 pt-1">
+          <button 
+            id="btn-check-apk"
+            onclick="checkAppUpdateManual()" 
+            class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs sm:text-sm py-3 px-4 rounded-2xl shadow-sm transition flex items-center justify-center gap-2 active:scale-98 cursor-pointer"
+          >
+            <span id="check-apk-icon">🔍</span>
+            <span id="check-apk-text">Comprobar si hay nueva versión del APK</span>
+          </button>
+          
+          <div id="apk-update-feedback" class="hidden p-3.5 rounded-2xl text-xs space-y-2 animate-fade-in"></div>
+        </div>
+      </div>
+
+      <!-- 3. HERRAMIENTAS Y ACCIONES DE LA LISTA -->
       <div class="bg-white border border-slate-200/90 shadow-sm rounded-3xl p-5 space-y-3">
         <h3 class="text-sm font-black text-slate-900 tracking-tight flex items-center gap-2">
           <span>🛠️</span> Acciones de la Lista de la Compra
@@ -484,16 +551,17 @@
         </div>
       </div>
 
-      <!-- 3. INFORMACIÓN DE LA APLICACIÓN -->
-      <div class="bg-white border border-slate-200/90 shadow-sm rounded-3xl p-5 text-center space-y-2">
-        <div class="text-2xl font-black text-slate-900 tracking-tight flex items-center justify-center gap-2">
-          <span>🛒</span> SuperSoria
+      <!-- 4. INFORMACIÓN DE LA APLICACIÓN -->
+      <div class="bg-white border border-slate-200/90 shadow-sm rounded-3xl p-6 text-center space-y-3">
+        <div class="flex flex-col items-center justify-center gap-2">
+          <img src="assets/icon-192.png" alt="SuperSoria Logo" class="w-16 h-16 rounded-2xl shadow-md border border-slate-100 object-cover" />
+          <div class="text-xl font-black text-slate-900 tracking-tight">SuperSoria</div>
         </div>
         <p class="text-xs text-slate-500 max-w-md mx-auto">
           Comparador de precios inteligente para todos los supermercados de Soria (CP 42001 - 42005).
         </p>
-        <div class="pt-2 flex items-center justify-center gap-3 text-xs text-slate-400">
-          <span class="font-mono font-bold text-slate-600">v1.1.0</span>
+        <div class="pt-1 flex items-center justify-center gap-3 text-xs text-slate-400">
+          <span class="font-mono font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded">v1.1.0</span>
           <span>•</span>
           <a href="https://github.com/TheSorian/SuperSoria" target="_blank" class="text-blue-600 hover:underline font-bold flex items-center gap-1">
             <span>🐙</span> GitHub
@@ -524,9 +592,7 @@
     <div class="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl relative animate-slide-down text-center space-y-4">
       <button onclick="closeMobileModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg font-black w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition">✕</button>
       
-      <div class="w-12 h-12 bg-blue-100 text-blue-700 rounded-2xl flex items-center justify-center mx-auto text-2xl font-bold">
-        📱
-      </div>
+      <img src="assets/icon-192.png" alt="SuperSoria Logo" class="w-14 h-14 rounded-2xl shadow-md border border-slate-100 mx-auto object-cover" />
 
       <div>
         <h3 class="text-base font-black text-slate-900">Usa SuperSoria en tu móvil</h3>
@@ -1738,6 +1804,69 @@
       });
     }
 
+    // Comprobación manual de actualización de APK
+    async function checkAppUpdateManual() {
+      const btn = document.getElementById('btn-check-apk');
+      const icon = document.getElementById('check-apk-icon');
+      const text = document.getElementById('check-apk-text');
+      const feedback = document.getElementById('apk-update-feedback');
+      const badge = document.getElementById('apk-version-badge');
+
+      if (!btn) return;
+      btn.disabled = true;
+      btn.classList.add('opacity-75');
+      icon.classList.add('animate-spin');
+      text.innerText = 'Comprobando en GitHub Releases...';
+      feedback.classList.add('hidden');
+
+      try {
+        const updater = window.superSoriaSync;
+        if (!updater) throw new Error('Módulo de actualización no cargado');
+
+        const info = await updater.checkAppBinaryUpdate();
+
+        if (info.success && info.hasUpdate) {
+          if (badge) {
+            badge.innerText = `Nueva ${info.latestVersion}`;
+            badge.className = 'px-2 py-0.5 bg-blue-100 text-blue-800 text-[10px] font-black rounded-full uppercase tracking-wider animate-pulse';
+          }
+          feedback.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'bg-rose-50', 'text-rose-800');
+          feedback.classList.add('bg-blue-50', 'border', 'border-blue-200', 'text-blue-900');
+          feedback.innerHTML = `
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+              <div>
+                <p class="font-extrabold text-xs text-blue-950">🚀 ¡Nueva versión ${info.latestVersion} disponible!</p>
+                <p class="text-[11px] text-blue-700 mt-0.5">Tamaño de la descarga: ${info.apkSizeMb ? info.apkSizeMb + ' MB' : '~4.1 MB'}</p>
+              </div>
+              <a href="${info.downloadUrl}" target="_blank" onclick="window.open('${info.downloadUrl}', '_system')" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black text-xs rounded-xl shadow-xs transition text-center shrink-0">
+                📥 Descargar e Instalar
+              </a>
+            </div>
+            ${info.releaseNotes ? `<div class="mt-2 text-[11px] text-blue-800 bg-white/70 p-2 rounded-xl border border-blue-100 font-mono">${info.releaseNotes}</div>` : ''}
+          `;
+          showToast(`¡Nueva versión ${info.latestVersion} disponible!`, '🚀');
+        } else {
+          if (badge) {
+            badge.innerText = 'v1.1.0';
+            badge.className = 'px-2 py-0.5 bg-emerald-100 text-emerald-800 text-[10px] font-black rounded-full uppercase tracking-wider';
+          }
+          feedback.classList.remove('hidden', 'bg-rose-50', 'text-rose-800', 'bg-blue-50', 'text-blue-900');
+          feedback.classList.add('bg-emerald-50', 'border', 'border-emerald-200', 'text-emerald-800');
+          feedback.innerHTML = `✅ <b>Tu aplicación está al día.</b> Tienes instalada la versión ${info.currentVersion}, que es la más reciente publicada.`;
+          showToast('Tu APK está al día', '✅');
+        }
+      } catch (err) {
+        feedback.classList.remove('hidden', 'bg-emerald-50', 'text-emerald-800', 'bg-blue-50', 'text-blue-900');
+        feedback.classList.add('bg-rose-50', 'border', 'border-rose-200', 'text-rose-800');
+        feedback.innerHTML = `⚠️ No se pudo conectar con GitHub (${err.message}). Comprueba tu conexión a internet.`;
+      } finally {
+        btn.disabled = false;
+        btn.classList.remove('opacity-75');
+        icon.classList.remove('animate-spin');
+        text.innerText = 'Comprobar si hay nueva versión del APK';
+      }
+    }
+
     // Inicialización al cargar la página
     window.addEventListener('DOMContentLoaded', () => {
       loadStats();
@@ -1746,6 +1875,9 @@
       loadBrands();
       loadSupermarkets();
       loadSettingsTab();
+      if (typeof window.checkAppUpdateOnLaunch === 'function') {
+        window.checkAppUpdateOnLaunch();
+      }
     });
   </script>
 </body>
