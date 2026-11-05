@@ -317,6 +317,27 @@ class SuperSoriaClientDB {
     };
   }
 
+  findMatchingProduct(text) {
+    if (!this.db || !text) return null;
+    const clean = text.trim();
+    const firstWord = clean.split(/\s+/)[0];
+
+    const stmt = this.db.prepare(`
+      SELECT id, name FROM Product 
+      WHERE name LIKE ? OR name LIKE ? 
+      ORDER BY CASE WHEN name LIKE ? THEN 1 ELSE 2 END 
+      LIMIT 1
+    `);
+    stmt.bind([`%${clean}%`, `%${firstWord}%`, `${clean}%`]);
+    if (stmt.step()) {
+      const row = stmt.getAsObject();
+      stmt.free();
+      return row;
+    }
+    stmt.free();
+    return null;
+  }
+
   getProductPriceComparison(productId) {
     if (!this.db) return null;
     const stmt = this.db.prepare(`
@@ -371,7 +392,7 @@ class SuperSoriaClientDB {
     return {
       product: {
         ...product,
-        category: { id: product.categoryId, name: product.categoryName, icon: product.categoryIcon },
+        category: { id: product.categoryId, name: product.categoryName, icon: product.categoryIcon || '🛒' },
         prices,
       },
       cheapestPrice: minPrice,
@@ -412,52 +433,83 @@ class SuperSoriaClientDB {
         id: item.id,
         productId: item.productId || null,
         customName: item.customName || product?.name || 'Artículo',
-        quantity: item.quantity || 1,
+        quantity: Math.max(1, Number(item.quantity) || 1),
         checked: Boolean(item.checked),
         product,
       };
     });
 
+    // Agrupar items por Sección / Categoría real
+    const categoriesMap = {};
+    const unclassifiedItems = [];
+
+    for (const item of enrichedItems) {
+      const category = item.product?.category;
+      if (category) {
+        const catId = category.id || 'general';
+        if (!categoriesMap[catId]) {
+          categoriesMap[catId] = {
+            categoryName: category.name || 'Alimentación',
+            icon: category.icon || '🛒',
+            aisleOrder: category.aisleOrder || 50,
+            items: [],
+          };
+        }
+        categoriesMap[catId].items.push(item);
+      } else {
+        unclassifiedItems.push(item);
+      }
+    }
+
+    const groupedByAisle = Object.values(categoriesMap).sort((a, b) => (a.aisleOrder || 50) - (b.aisleOrder || 50));
+    if (unclassifiedItems.length > 0) {
+      groupedByAisle.push({
+        categoryName: 'Otros / Varios',
+        icon: '📝',
+        aisleOrder: 999,
+        items: unclassifiedItems,
+      });
+    }
+
     // Calcular coste por supermercado genérico
     const storeEstimates = CHAINS.map((chain) => {
       let total = 0;
-      let missingItems = 0;
+      let itemsFound = 0;
+      const missingItems = [];
 
       for (const item of enrichedItems) {
-        if (!item.product) {
-          missingItems++;
-          continue;
-        }
-        const storePrice = item.product.prices.find((p) => p.supermarket.chain === chain);
+        const storePrice = item.product?.prices?.find((p) => p.supermarket?.chain?.toLowerCase() === chain.toLowerCase());
         if (storePrice) {
           total += storePrice.price * item.quantity;
+          itemsFound++;
         } else {
-          missingItems++;
-          // Estimar con precio medio o más barato si no está disponible en esa cadena
-          const fallback = item.product.prices[0]?.price || 0;
+          missingItems.push(item.customName);
+          const fallback = item.product?.prices?.[0]?.price || 0;
           total += fallback * item.quantity;
         }
       }
 
       return {
         chain,
+        total: +total.toFixed(2),
         totalCost: +total.toFixed(2),
-        isComplete: missingItems === 0,
-        missingCount: missingItems,
+        itemsFound,
+        missingItems,
+        isComplete: missingItems.length === 0,
       };
-    }).sort((a, b) => a.totalCost - b.totalCost);
+    }).sort((a, b) => a.total - b.total);
 
     // Calcular cesta óptima (comprando cada producto en el más barato)
     let optimalTotal = 0;
     const optimalPlan = [];
     for (const item of enrichedItems) {
-      if (item.product && item.product.prices.length > 0) {
+      if (item.product && item.product.prices && item.product.prices.length > 0) {
         const best = item.product.prices[0];
         const cost = +(best.price * item.quantity).toFixed(2);
         optimalTotal += cost;
         optimalPlan.push({
           productName: item.product.name,
-          bestStore: best.supermarket.chain,
+          bestStore: best.supermarket?.chain || 'Soria',
           price: best.price,
           quantity: item.quantity,
           subtotal: cost,
@@ -465,11 +517,23 @@ class SuperSoriaClientDB {
       }
     }
 
-    const singleStoreBest = storeEstimates[0]?.totalCost || 0;
+    optimalTotal = +optimalTotal.toFixed(2);
+    const singleStoreBest = storeEstimates[0]?.total || 0;
     const savings = singleStoreBest > optimalTotal ? +(singleStoreBest - optimalTotal).toFixed(2) : 0;
 
     return {
       success: true,
+      totalItems: enrichedItems.length,
+      completedItems: enrichedItems.filter((i) => i.checked).length,
+      groupedByAisle,
+      basketEstimates: {
+        byChain: storeEstimates,
+        optimal: {
+          total: optimalTotal,
+          potentialSavings: savings,
+          plan: optimalPlan,
+        },
+      },
       list: {
         id: 'local-list',
         title: 'Mi Lista Inteligente de Soria',
@@ -482,7 +546,7 @@ class SuperSoriaClientDB {
         storeEstimates,
         cheapestStore: storeEstimates[0]?.chain || 'Mercadona',
         cheapestSingleCost: singleStoreBest,
-        optimalTotal: +optimalTotal.toFixed(2),
+        optimalTotal,
         savingsAmount: savings,
         savingsPercent: singleStoreBest > 0 ? Math.round((savings / singleStoreBest) * 100) : 0,
         optimalPlan,
@@ -492,43 +556,68 @@ class SuperSoriaClientDB {
 
   addShoppingListItem({ productId, customName, quantity = 1 }) {
     const items = this.getShoppingListItems();
+    let pId = productId || null;
+    let name = customName || 'Nuevo artículo';
+
+    // Si no tiene productId, vincular automáticamente por nombre
+    if (!pId && name && this.db) {
+      const match = this.findMatchingProduct(name);
+      if (match) {
+        pId = match.id;
+        if (!name || name === 'Nuevo artículo') name = match.name;
+      }
+    }
+
     const id = 'item_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
     items.unshift({
       id,
-      productId: productId || null,
-      customName: customName || 'Nuevo artículo',
-      quantity: Number(quantity) || 1,
+      productId: pId,
+      customName: name,
+      quantity: Math.max(1, Number(quantity) || 1),
       checked: false,
     });
     this.saveShoppingListItems(items);
-    return this.getShoppingListData();
+    return { success: true, item: items[0], ...this.getShoppingListData() };
   }
 
-  updateShoppingListItem(itemId, updates) {
+  toggleShoppingListItem(itemId) {
     const items = this.getShoppingListItems();
     const idx = items.findIndex((i) => i.id === itemId);
     if (idx !== -1) {
-      items[idx] = { ...items[idx], ...updates };
+      items[idx].checked = !items[idx].checked;
       this.saveShoppingListItems(items);
     }
-    return this.getShoppingListData();
+    return { success: true, ...this.getShoppingListData() };
+  }
+
+  changeItemQuantity(itemId, delta) {
+    const items = this.getShoppingListItems();
+    const idx = items.findIndex((i) => i.id === itemId);
+    if (idx !== -1) {
+      const newQty = (items[idx].quantity || 1) + delta;
+      items[idx].quantity = Math.max(1, newQty);
+      this.saveShoppingListItems(items);
+    }
+    return { success: true, ...this.getShoppingListData() };
   }
 
   deleteShoppingListItem(itemId) {
     const items = this.getShoppingListItems().filter((i) => i.id !== itemId);
     this.saveShoppingListItems(items);
-    return this.getShoppingListData();
+    return { success: true, ...this.getShoppingListData() };
   }
 
   clearCompletedShoppingListItems() {
-    const items = this.getShoppingListItems().filter((i) => !i.checked);
-    this.saveShoppingListItems(items);
-    return { success: true, count: items.length };
+    const original = this.getShoppingListItems();
+    const remaining = original.filter((i) => !i.checked);
+    const count = original.length - remaining.length;
+    this.saveShoppingListItems(remaining);
+    return { success: true, count, ...this.getShoppingListData() };
   }
 
   clearAllShoppingListItems() {
     this.saveShoppingListItems([]);
-    return { success: true };
+    return { success: true, ...this.getShoppingListData() };
   }
 
   // --- SINCRONIZACIÓN EN LA NUBE ---
@@ -548,7 +637,6 @@ class SuperSoriaClientDB {
       const stream = new Response(gzBuffer).body.pipeThrough(new DecompressionStream('gzip'));
       decompressed = await new Response(stream).arrayBuffer();
     } else {
-      // Fallback si DecompressionStream no está soportado
       decompressed = gzBuffer;
     }
 
@@ -569,8 +657,6 @@ class SuperSoriaClientDB {
 window.superSoriaClientDB = new SuperSoriaClientDB();
 
 // --- INTERCEPTOR TRANSPARENTE DE FETCH ---
-// Si la llamada es a /api/... y estamos en la APK o el servidor local no responde,
-// se despacha directamente usando el motor SQLite local
 (function() {
   const originalFetch = window.fetch;
 
@@ -579,23 +665,19 @@ window.superSoriaClientDB = new SuperSoriaClientDB();
 
     // Si es una llamada interna a la API de SuperSoria
     if (url.startsWith('/api/') || url.includes('/api/')) {
-      // Determinar si debemos responder con la base de datos local directamente
       const isNativeApp = Boolean(window.Capacitor?.isNativePlatform()) || 
                           window.location.protocol === 'file:' || 
-                          window.location.hostname === 'localhost' && !window.location.port;
+                          (window.location.hostname === 'localhost' && !window.location.port);
 
       if (isNativeApp || window.FORCE_OFFLINE_DB) {
         return handleApiCallLocally(url, init);
       }
 
       try {
-        // En entorno web con dev server, intentar la llamada HTTP
         const res = await originalFetch(input, init);
         if (res.ok) return res;
-        // Si el backend responde 404 o 500, probar local
         return handleApiCallLocally(url, init);
       } catch (networkErr) {
-        // Si falla la conexión de red (servidor apagado o sin internet), usar SQLite local
         return handleApiCallLocally(url, init);
       }
     }
@@ -661,38 +743,45 @@ window.superSoriaClientDB = new SuperSoriaClientDB();
     }
 
     // 7. /api/lists/:shareCode/completed (DELETE)
-    if (path.endsWith('/completed') && method === 'DELETE') {
+    if (path.includes('/completed') && method === 'DELETE') {
       return jsonResponse(client.clearCompletedShoppingListItems());
     }
 
     // 8. /api/lists/:shareCode/clear (DELETE)
-    if (path.endsWith('/clear') && method === 'DELETE') {
+    if (path.includes('/clear') && method === 'DELETE') {
       return jsonResponse(client.clearAllShoppingListItems());
     }
 
-    // 9. /api/lists/items/:id (PATCH / DELETE)
-    const itemMatch = path.match(/^\/api\/lists\/items\/([^\/]+)$/);
-    if (itemMatch) {
-      const itemId = itemMatch[1];
-      if (method === 'PATCH') {
-        return jsonResponse(client.updateShoppingListItem(itemId, body));
-      }
-      if (method === 'DELETE') {
-        return jsonResponse(client.deleteShoppingListItem(itemId));
-      }
+    // 9. /api/items/:id/quantity (PATCH)
+    const qtyMatch = path.match(/^\/api\/items\/([^\/]+)\/quantity$/);
+    if (qtyMatch && method === 'PATCH') {
+      const delta = Number(body.delta) || 0;
+      return jsonResponse(client.changeItemQuantity(qtyMatch[1], delta));
     }
 
-    // 10. /api/lists/:shareCode/items (POST)
+    // 10. /api/items/:id/toggle (PATCH)
+    const toggleMatch = path.match(/^\/api\/items\/([^\/]+)\/toggle$/);
+    if (toggleMatch && method === 'PATCH') {
+      return jsonResponse(client.toggleShoppingListItem(toggleMatch[1]));
+    }
+
+    // 11. /api/items/:id (DELETE)
+    const itemDeleteMatch = path.match(/^\/api\/items\/([^\/]+)$/);
+    if (itemDeleteMatch && method === 'DELETE') {
+      return jsonResponse(client.deleteShoppingListItem(itemDeleteMatch[1]));
+    }
+
+    // 12. /api/lists/:shareCode/items (POST)
     if (path.match(/^\/api\/lists\/[^\/]+\/items$/) && method === 'POST') {
       return jsonResponse(client.addShoppingListItem(body));
     }
 
-    // 11. /api/lists/:shareCode (GET)
+    // 13. /api/lists/:shareCode (GET)
     if (path.startsWith('/api/lists/')) {
       return jsonResponse(client.getShoppingListData());
     }
 
-    // 12. /api/network-info
+    // 14. /api/network-info
     if (path === '/api/network-info') {
       return jsonResponse({ localIp: 'localhost', port: 3000, localUrl: window.location.href, networkUrl: window.location.href, isStandalone: true });
     }
