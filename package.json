@@ -1,6 +1,6 @@
 {
   "name": "supersoria",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "SuperSoria - Comparador de precios y cesta de la compra para supermercados en Soria",
   "main": "dist/index.js",
   "scripts": {
