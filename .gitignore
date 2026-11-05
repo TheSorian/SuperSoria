@@ -3,6 +3,7 @@ dist/
 dist-release/
 .env
 *.log
+*.apk
 prisma/*.db-journal
 prisma/*.db-shm
 prisma/*.db-wal
