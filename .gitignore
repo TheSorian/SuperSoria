@@ -1,6 +1,5 @@
 node_modules/
 dist/
-dist-release/*.gz
 dist-release/*.db
 .env
 *.log

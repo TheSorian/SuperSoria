@@ -1060,21 +1060,42 @@ class SuperSoriaClientDB {
   }
 
   // --- SINCRONIZACIÓN EN LA NUBE ---
-  async syncFromCloud(onProgress) {
+  async syncFromCloud(onProgress, customUrl) {
     if (onProgress) onProgress('Comprobando versión en GitHub...', 20);
-    const GITHUB_GZ_URL = 'https://raw.githubusercontent.com/TheSorian/SuperSoria/master/dist-release/supersoria-db.sqlite.gz';
+    const RAW_GZ_URL = 'https://raw.githubusercontent.com/TheSorian/SuperSoria/master/dist-release/supersoria-db.sqlite.gz';
+    const RELEASE_GZ_URL = customUrl || 'https://github.com/TheSorian/SuperSoria/releases/download/latest-data/supersoria-db.sqlite.gz';
+    const FALLBACK_GZ_URL = 'https://github.com/TheSorian/SuperSoria/releases/latest/download/supersoria-db.sqlite.gz';
     
     if (onProgress) onProgress('Descargando catálogo de Soria...', 40);
-    const res = await fetch(`${GITHUB_GZ_URL}?t=${Date.now()}`);
-    if (!res.ok) throw new Error(`HTTP ${res.status} desde GitHub`);
+    let res = null;
+    const urls = [RAW_GZ_URL, RELEASE_GZ_URL, FALLBACK_GZ_URL];
+
+    for (const u of urls) {
+      try {
+        const attempt = await fetch(`${u}?t=${Date.now()}`);
+        if (attempt.ok) {
+          res = attempt;
+          break;
+        }
+      } catch (e) {
+        console.warn(`Intento de descarga fallido para ${u}:`, e.message);
+      }
+    }
+
+    if (!res || !res.ok) throw new Error('No se pudo descargar el paquete de precios desde GitHub');
 
     if (onProgress) onProgress('Descomprimiendo base de datos...', 70);
     const gzBuffer = await res.arrayBuffer();
 
     let decompressed;
     if (typeof DecompressionStream !== 'undefined') {
-      const stream = new Response(gzBuffer).body.pipeThrough(new DecompressionStream('gzip'));
-      decompressed = await new Response(stream).arrayBuffer();
+      try {
+        const stream = new Response(gzBuffer).body.pipeThrough(new DecompressionStream('gzip'));
+        decompressed = await new Response(stream).arrayBuffer();
+      } catch (decompErr) {
+        console.warn('Fallo en DecompressionStream, intentando buffer directo:', decompErr);
+        decompressed = gzBuffer;
+      }
     } else {
       decompressed = gzBuffer;
     }

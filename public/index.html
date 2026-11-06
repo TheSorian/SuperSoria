@@ -2546,6 +2546,11 @@
       if (typeof window.checkAppUpdateOnLaunch === 'function') {
         window.checkAppUpdateOnLaunch();
       }
+      if (typeof window.checkDatabaseUpdateOnLaunch === 'function') {
+        setTimeout(() => {
+          window.checkDatabaseUpdateOnLaunch();
+        }, 1800);
+      }
     });
   </script>
 </body>

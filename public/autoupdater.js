@@ -60,7 +60,11 @@ class SuperSoriaCloudSync {
   async checkForUpdates() {
     try {
       const url = `${GITHUB_RAW_BASE}/dist-release/metadata.json?t=${Date.now()}`;
-      const res = await fetch(url, { cache: 'no-store' });
+      let res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) {
+        const releaseMetaUrl = `https://github.com/${GITHUB_REPO}/releases/download/latest-data/metadata.json?t=${Date.now()}`;
+        res = await fetch(releaseMetaUrl, { cache: 'no-store' });
+      }
       if (!res.ok) {
         throw new Error(`GitHub HTTP ${res.status}`);
       }
@@ -93,12 +97,16 @@ class SuperSoriaCloudSync {
    * Ejecuta la sincronización descargando el paquete de la nube
    */
   async syncNow(onProgress) {
+    const check = await this.checkForUpdates();
+    const meta = check.remoteMeta || null;
+    const downloadUrl = meta?.downloadUrl || 
+      `https://github.com/${GITHUB_REPO}/releases/download/latest-data/supersoria-db.sqlite.gz`;
+
     if (window.superSoriaClientDB) {
-      await window.superSoriaClientDB.syncFromCloud(onProgress);
+      await window.superSoriaClientDB.syncFromCloud(onProgress, downloadUrl);
     }
 
-    const check = await this.checkForUpdates();
-    const meta = check.remoteMeta || {
+    const currentMeta = meta || {
       generatedAt: new Date().toISOString(),
       stats: { totalProducts: 47098, totalPriceRecords: 81830 },
       sha256: 'latest',
@@ -107,10 +115,10 @@ class SuperSoriaCloudSync {
     // Actualizar registro local
     const newInfo = {
       version: CURRENT_APP_VERSION,
-      lastSync: meta.generatedAt,
-      productsCount: meta.stats?.totalProducts || 47098,
-      pricesCount: meta.stats?.totalPriceRecords || 81830,
-      sha256: meta.sha256,
+      lastSync: currentMeta.generatedAt,
+      productsCount: currentMeta.stats?.totalProducts || 47098,
+      pricesCount: currentMeta.stats?.totalPriceRecords || 81830,
+      sha256: currentMeta.sha256,
     };
     this.saveInfo(newInfo);
 
@@ -207,5 +215,46 @@ window.dismissAppUpdateBanner = function() {
   if (banner) banner.classList.add('hidden');
   if (versionTag?.innerText) {
     sessionStorage.setItem('dismissed_update_version', versionTag.innerText.trim());
+  }
+};
+
+/**
+ * Comprueba de forma automática y silenciosa al abrir la app si hay una base de datos más reciente en GitHub
+ * Si la hay, la descarga en segundo plano y actualiza la app sin molestar al usuario
+ */
+window.checkDatabaseUpdateOnLaunch = async function() {
+  try {
+    const updater = window.superSoriaSync;
+    if (!updater) return;
+
+    // Evitar comprobar en bucle si el usuario recarga rápidamente (mínimo 15 minutos entre comprobaciones)
+    const lastCheck = parseInt(sessionStorage.getItem('last_cloud_db_check') || '0', 10);
+    const now = Date.now();
+    if (now - lastCheck < 1000 * 60 * 15) return;
+    sessionStorage.setItem('last_cloud_db_check', now.toString());
+
+    const result = await updater.checkForUpdates();
+    if (result && result.success && result.hasUpdate) {
+      console.log('⚡ Nueva base de datos disponible en GitHub. Descargando automáticamente...');
+      
+      if (typeof showToast === 'function') {
+        showToast('Actualizando precios de Soria...', '🔄');
+      }
+
+      await updater.syncNow((msg) => {
+        console.log(`[AutoCloudSync] ${msg}`);
+      });
+
+      if (typeof showToast === 'function') {
+        showToast('¡Precios actualizados al día!', '⚡');
+      }
+
+      // Refrescar vistas activas
+      if (typeof loadStats === 'function') loadStats();
+      if (typeof loadShoppingList === 'function') loadShoppingList();
+      if (typeof loadSettingsTab === 'function') loadSettingsTab();
+    }
+  } catch (err) {
+    console.debug('Comprobación automática de base de datos omitida (offline o error):', err.message);
   }
 };

@@ -27,11 +27,8 @@ jobs:
       - name: Instalar Dependencias
         run: npm ci
 
-      - name: Ejecutar Rastreador Completo de E.Leclerc Soria
-        run: npx tsx scripts/scrape_full_eleclerc_soria.ts
-
-      - name: Generar Paquete Comprimido de Base de Datos
-        run: npx tsx scripts/export_database_release.ts
+      - name: Actualización Completa de Supermercados de Soria (E.Leclerc, Lupa, Dia, Alcampo, Mercadona, Lidl)
+        run: npx tsx scripts/daily_sync_all_soria.ts
 
       - name: Publicar / Actualizar GitHub Release
         uses: softprops/action-gh-release@v2
@@ -48,10 +45,10 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Guardar Base de Datos Actualizada en el Repositorio
+      - name: Guardar Base de Datos y Metadatos en el Repositorio
         run: |
           git config --global user.name "SuperSoria Bot"
           git config --global user.email "bot@supersoria.es"
-          git add prisma/dev.db
+          git add prisma/dev.db dist-release/metadata.json dist-release/supersoria-db.sqlite.gz public/assets/supersoria.db
           git diff-index --quiet HEAD || git commit -m "chore(db): actualización automática de precios [skip ci]"
           git push origin HEAD:master
