@@ -691,6 +691,47 @@ class SuperSoriaClientDB {
 
   // --- GESTIÓN DE LA LISTA DE LA COMPRA EN LOCALSTORAGE ---
 
+  getGlobalEquivalences() {
+    try {
+      const raw = localStorage.getItem('supersoria_global_equivalences');
+      return raw ? JSON.parse(raw) : {};
+    } catch {
+      return {};
+    }
+  }
+
+  saveGlobalEquivalence(keyName, chain, alternativeProductId) {
+    if (!keyName || !chain) return;
+    const key = keyName.toString().toLowerCase().trim();
+    const ch = chain.toString().toLowerCase().trim();
+    const all = this.getGlobalEquivalences();
+    if (!all[key]) all[key] = {};
+    if (alternativeProductId === null || alternativeProductId === undefined) {
+      delete all[key][ch];
+      if (Object.keys(all[key]).length === 0) delete all[key];
+    } else {
+      all[key][ch] = alternativeProductId;
+    }
+    try {
+      localStorage.setItem('supersoria_global_equivalences', JSON.stringify(all));
+    } catch {}
+  }
+
+  getSavedGlobalEquivalence(product, customName, chain) {
+    const all = this.getGlobalEquivalences();
+    const ch = (chain || '').toLowerCase().trim();
+    if (product?.id && all[product.id.toLowerCase()]?.[ch] !== undefined) {
+      return all[product.id.toLowerCase()][ch];
+    }
+    if (product?.name && all[product.name.toLowerCase().trim()]?.[ch] !== undefined) {
+      return all[product.name.toLowerCase().trim()][ch];
+    }
+    if (customName && all[customName.toLowerCase().trim()]?.[ch] !== undefined) {
+      return all[customName.toLowerCase().trim()][ch];
+    }
+    return undefined;
+  }
+
   getShoppingListItems() {
     try {
       const raw = localStorage.getItem('supersoria_local_shopping_list');
@@ -719,45 +760,27 @@ class SuperSoriaClientDB {
       // Evaluar disponibilidad y alternativas por cada cadena de Soria
       const storeAvailability = {};
       for (const chain of CHAINS) {
-        // 0. Si el usuario fijó una decisión manual previa para esta cadena:
-        const manualChoice = item.manualEquivalents?.[chain];
-        if (manualChoice !== undefined) {
-          if (manualChoice === null) {
-            // Usuario decidió expresamente marcarlo como "No disponible / No comprar"
-            storeAvailability[chain] = {
-              status: 'unavailable',
-              price: 0,
-              referencePrice: null,
-              referenceUnit: null,
-              altProduct: null,
-              isManual: true,
-            };
-            continue;
-          } else {
-            // Usuario eligió un producto específico como alternativa
-            const altComp = this.getProductPriceComparison(manualChoice);
-            const altPrice = altComp?.product?.prices?.find((p) => p.supermarket?.chain?.toLowerCase() === chain.toLowerCase());
-            if (altPrice) {
-              storeAvailability[chain] = {
-                status: 'alternative',
-                price: altPrice.price,
-                referencePrice: altPrice.referencePrice,
-                referenceUnit: altPrice.referenceUnit,
-                altProduct: {
-                  id: altComp.product.id,
-                  name: altComp.product.name,
-                  brand: altComp.product.brand,
-                  format: altComp.product.format,
-                  imageUrl: altComp.product.imageUrl,
-                  price: altPrice.price,
-                },
-                isManual: true,
-              };
-              continue;
-            }
-          }
+        // 0. Si el usuario fijó una decisión manual (en el ítem o guardada para siempre en la memoria global):
+        let manualChoice = item.manualEquivalents?.[chain];
+        if (manualChoice === undefined) {
+          manualChoice = this.getSavedGlobalEquivalence(product, item.customName, chain);
         }
 
+        if (manualChoice === null || manualChoice === 'none') {
+          // Usuario decidió expresamente marcarlo como "No disponible / No comprar"
+          storeAvailability[chain] = {
+            status: 'unavailable',
+            price: 0,
+            referencePrice: null,
+            referenceUnit: null,
+            altProduct: null,
+            isManual: true,
+          };
+          continue;
+        }
+
+        // 1. Si el supermercado ya tiene el producto EXACTO:
+        // ¡El producto exacto SIEMPRE tiene máxima prioridad sobre cualquier sustituto!
         const directPrice = product?.prices?.find((p) => p.supermarket?.chain?.toLowerCase() === chain.toLowerCase());
         if (directPrice) {
           storeAvailability[chain] = {
@@ -767,32 +790,65 @@ class SuperSoriaClientDB {
             referenceUnit: directPrice.referenceUnit,
             altProduct: null,
           };
-        } else if (product && this.db) {
-          const alt = this.findAlternativeInChain(product, chain);
-          if (alt) {
-            storeAvailability[chain] = {
-              status: 'alternative',
-              price: alt.price,
-              referencePrice: alt.referencePrice,
-              referenceUnit: alt.referenceUnit,
-              altProduct: {
-                id: alt.id,
-                name: alt.name,
-                brand: alt.brand,
-                format: alt.format,
-                imageUrl: alt.imageUrl,
-                price: alt.price,
-              },
-            };
-          } else {
-            storeAvailability[chain] = {
-              status: 'unavailable',
-              price: 0,
-              referencePrice: null,
-              referenceUnit: null,
-              altProduct: null,
+          continue;
+        }
+
+        // 2. Si no hay exacto: buscar mejor alternativa automática actual
+        const bestAutoAlt = product && this.db ? this.findAlternativeInChain(product, chain) : null;
+
+        // Comprobar si la alternativa manual elegida sigue teniendo precio y stock
+        let manualProductFound = null;
+        if (manualChoice) {
+          const altComp = this.getProductPriceComparison(manualChoice);
+          const altPrice = altComp?.product?.prices?.find((p) => p.supermarket?.chain?.toLowerCase() === chain.toLowerCase());
+          if (altPrice) {
+            manualProductFound = {
+              id: altComp.product.id,
+              name: altComp.product.name,
+              brand: altComp.product.brand,
+              format: altComp.product.format,
+              imageUrl: altComp.product.imageUrl,
+              price: altPrice.price,
+              referencePrice: altPrice.referencePrice,
+              referenceUnit: altPrice.referenceUnit,
             };
           }
+        }
+
+        if (manualProductFound) {
+          // ¿Ha salido alguna alternativa equivalente mejor (más barata) que antes no estuviera?
+          const hasBetterAuto = bestAutoAlt && bestAutoAlt.id !== manualProductFound.id && bestAutoAlt.price < manualProductFound.price;
+
+          storeAvailability[chain] = {
+            status: 'alternative',
+            price: manualProductFound.price,
+            referencePrice: manualProductFound.referencePrice,
+            referenceUnit: manualProductFound.referenceUnit,
+            altProduct: manualProductFound,
+            isManual: true,
+            betterAlternativeAvailable: hasBetterAuto ? {
+              id: bestAutoAlt.id,
+              name: bestAutoAlt.name,
+              price: bestAutoAlt.price,
+              savings: +(manualProductFound.price - bestAutoAlt.price).toFixed(2),
+            } : null,
+          };
+        } else if (bestAutoAlt) {
+          storeAvailability[chain] = {
+            status: 'alternative',
+            price: bestAutoAlt.price,
+            referencePrice: bestAutoAlt.referencePrice,
+            referenceUnit: bestAutoAlt.referenceUnit,
+            altProduct: {
+              id: bestAutoAlt.id,
+              name: bestAutoAlt.name,
+              brand: bestAutoAlt.brand,
+              format: bestAutoAlt.format,
+              imageUrl: bestAutoAlt.imageUrl,
+              price: bestAutoAlt.price,
+            },
+            isManual: false,
+          };
         } else {
           storeAvailability[chain] = {
             status: 'unavailable',
@@ -1068,6 +1124,15 @@ class SuperSoriaClientDB {
     }
 
     this.saveShoppingListItems(items);
+
+    // Guardar para siempre en la memoria global permanente
+    if (item.productId) {
+      this.saveGlobalEquivalence(item.productId, chain, alternativeProductId);
+    }
+    if (item.customName) {
+      this.saveGlobalEquivalence(item.customName, chain, alternativeProductId);
+    }
+
     return { success: true, item, ...this.getShoppingListData() };
   }
 

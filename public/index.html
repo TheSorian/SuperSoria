@@ -1138,6 +1138,11 @@
                 <span class="text-xs font-black text-indigo-900 whitespace-nowrap">
                   ${displayPrice.toFixed(2)} € ${qty > 1 ? `<span class="text-[10px] font-medium text-indigo-500">(${displayTotal.toFixed(2)} €)</span>` : ''}
                 </span>
+                ${avail?.isManual ? `
+                  <span class="text-[9px] font-black text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded-md" title="Alternativa personalizada por ti">
+                    ⭐ Tu elección
+                  </span>
+                ` : ''}
                 ${activeListStoreFilter ? `
                   <button 
                     onclick="openSelectAlternativeModal('${item.id}', '${activeListStoreFilter}', '${escapeHtml(item.customName)}')"
@@ -1145,6 +1150,15 @@
                     title="Cambiar el producto alternativo elegido para ${activeListStoreFilter}"
                   >
                     <span>🔄</span> Cambiar
+                  </button>
+                ` : ''}
+                ${avail?.betterAlternativeAvailable ? `
+                  <button 
+                    onclick="openSelectAlternativeModal('${item.id}', '${activeListStoreFilter}', '${escapeHtml(item.customName)}')"
+                    class="text-[10px] font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-300 transition flex items-center gap-1 shadow-xs"
+                    title="Ha aparecido una alternativa equivalente más económica en ${activeListStoreFilter}"
+                  >
+                    <span>💡</span> Opción a ${avail.betterAlternativeAvailable.price.toFixed(2)} € (-${avail.betterAlternativeAvailable.savings.toFixed(2)} €)
                   </button>
                 ` : ''}
               ` : activeListStoreFilter ? `
@@ -2018,7 +2032,7 @@
       const style = getChainStyle(chain);
       if (iconEl) iconEl.textContent = style.icon || '🛒';
       if (titleEl) titleEl.textContent = `Alternativa en ${chain}`;
-      if (subtitleEl) subtitleEl.textContent = `Para sustituir: "${customName}"`;
+      if (subtitleEl) subtitleEl.innerHTML = `Sustituto para: <strong>"${escapeHtml(customName)}"</strong> • <span class="text-emerald-700 font-extrabold">Se recordará en futuras listas</span>`;
       if (tagEl) {
         tagEl.innerHTML = `<span class="${style.textCol || 'text-slate-800'}">${style.icon} Catálogo de ${chain}</span>`;
       }
@@ -2169,7 +2183,7 @@
 
         const data = await res.json();
         if (data.success) {
-          showToast(`Alternativa guardada para ${currentAltModal.chain}`);
+          showToast(`Alternativa guardada para ${currentAltModal.chain} (memorizada para siempre)`);
           closeSelectAlternativeModal();
           await loadShoppingList();
         } else {

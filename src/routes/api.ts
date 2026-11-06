@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { productService } from '../services/product.service.js';
 import { listService } from '../services/list.service.js';
 import { scraperManager } from '../scrapers/index.js';
+import { saveGlobalEquivalence } from '../services/equivalence.service.js';
 import prisma from '../db/prisma.js';
 
 export const router = Router();
@@ -223,6 +224,14 @@ router.patch('/items/:id/equivalent', async (req: Request, res: Response) => {
       where: { id: req.params.id },
       data: { notes: JSON.stringify(notesObj) },
     });
+
+    // Guardar para siempre en la memoria global permanente
+    if (item.productId) {
+      saveGlobalEquivalence(item.productId, chain, alternativeProductId);
+    }
+    if (item.customName) {
+      saveGlobalEquivalence(item.customName, chain, alternativeProductId);
+    }
 
     res.json({ success: true, message: 'Alternativa actualizada' });
   } catch (err: any) {

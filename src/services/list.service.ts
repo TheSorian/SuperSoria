@@ -1,4 +1,5 @@
 import prisma from '../db/prisma.js';
+import { findGlobalEquivalence } from './equivalence.service.js';
 
 export class ListService {
   /**
@@ -229,17 +230,34 @@ export class ListService {
 
       // Buscar mejor precio por cada cadena en Soria
       for (const ch of chains) {
+        let manualEq = manualEquivalents[ch];
+        if (!manualEq) {
+          manualEq = findGlobalEquivalence(item.productId, item.customName, ch);
+        }
+
         // Si el usuario marcó explícitamente "none", no comprar aquí
-        if (manualEquivalents[ch] === 'none') {
-          chainEstimates[ch].missingItems.push(item.product?.name || item.customName);
+        if (manualEq === 'none') {
+          chainEstimates[ch].missingItems.push(item.product?.name || item.customName || 'Artículo');
           (chainEstimates[ch] as any).missingCount += 1;
           continue;
         }
 
-        // Si el usuario eligió una alternativa manual específica
-        if (manualEquivalents[ch]) {
+        // 1. Si el producto EXACTO original existe en la cadena: ¡siempre tiene prioridad máxima!
+        const chPrices = prices.filter(
+          (p: any) => p.supermarket && p.supermarket.chain.toLowerCase() === ch.toLowerCase()
+        );
+        if (chPrices.length > 0) {
+          const bestPrice = Math.min(...chPrices.map((p: any) => p.price));
+          chainEstimates[ch].total += +(bestPrice * itemQty).toFixed(2);
+          chainEstimates[ch].itemsFound += 1;
+          (chainEstimates[ch] as any).exactCount += 1;
+          continue;
+        }
+
+        // 2. Si no hay exacto y hay alternativa manual guardada:
+        if (manualEq) {
           const manualProd = await prisma.product.findUnique({
-            where: { id: manualEquivalents[ch] },
+            where: { id: manualEq },
             include: {
               prices: {
                 where: { supermarket: { chain: { equals: ch } } },
@@ -255,17 +273,8 @@ export class ListService {
           }
         }
 
-        const chPrices = prices.filter(
-          (p: any) => p.supermarket && p.supermarket.chain.toLowerCase() === ch.toLowerCase()
-        );
-        if (chPrices.length > 0) {
-          const bestPrice = Math.min(...chPrices.map((p: any) => p.price));
-          chainEstimates[ch].total += +(bestPrice * itemQty).toFixed(2);
-          chainEstimates[ch].itemsFound += 1;
-          (chainEstimates[ch] as any).exactCount += 1;
-        } else {
-          // Intentar buscar alternativa en esa cadena
-          let altFound = false;
+        // 3. Intentar buscar alternativa automática en esa cadena
+        let altFound = false;
           if (item.product?.name) {
             const cleanTokens = item.product.name.toLowerCase()
               .replace(/[^\wáéíóúñ\s]/gi, ' ')
@@ -302,7 +311,6 @@ export class ListService {
             (chainEstimates[ch] as any).missingCount += 1;
           }
         }
-      }
 
       // Para la cesta óptima (comprando en el más barato de cada uno)
       if (prices.length > 0) {
