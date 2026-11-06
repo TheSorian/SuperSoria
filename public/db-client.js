@@ -558,11 +558,16 @@ class SuperSoriaClientDB {
   findAlternativeInChain(product, chain) {
     if (!this.db || !product) return null;
 
+    const isBagSearch = /basura|congelaci[oó]n|residuos/i.test(product.name || '');
     const stopWords = new Set([
       'de', 'la', 'el', 'en', 'con', 'y', 'a', 'para', 'del', 'los', 'las', 'un', 'una', 'al',
-      '1l', '1kg', '2l', '5l', '500g', '100g', 'pack', 'ud', 'uds', 'gr', 'grs', 'botella',
-      'brik', 'brick', 'lata', 'tarro', 'bolsa', 'tubo', 'sobre', 'cristal', 'unidad', 'producto'
+      'pack', 'ud', 'uds', 'gr', 'grs', 'botella', 'brik', 'brick', 'lata', 'tarro', 'tubo',
+      'sobre', 'cristal', 'unidad', 'producto'
     ]);
+    if (!isBagSearch) {
+      stopWords.add('bolsa');
+      stopWords.add('bolsas');
+    }
 
     const brandName = (product.brand || '').toLowerCase();
     const cleanTokens = (product.name || '')
@@ -573,110 +578,92 @@ class SuperSoriaClientDB {
 
     if (cleanTokens.length === 0) return null;
 
-    let alt = null;
+    // Extraer capacidad / volumen si existe (ej: 50L, 30L, 10L, 1L, etc.)
+    const volMatch = (product.name || '').match(/(\d+)\s*(l|litros?)/i);
+    const targetLiters = volMatch ? parseInt(volMatch[1], 10) : null;
+    const isBolsa = /bolsa/i.test(product.name || '');
+    const isCubo = /cubo/i.test(product.name || '');
 
-    // 1. Prioridad: Misma categoría y coincide en los 2 primeros términos principales
-    if (cleanTokens.length >= 2 && product.categoryId) {
-      try {
-        const q1 = this.db.prepare(`
-          SELECT p.id, p.name, p.brand, p.format, p.imageUrl, pr.price, pr.referencePrice, pr.referenceUnit, s.chain
-          FROM Product p
-          JOIN PriceRecord pr ON p.id = pr.productId
-          JOIN Supermarket s ON pr.supermarketId = s.id
-          WHERE LOWER(s.chain) = LOWER(?)
-            AND p.id != ?
-            AND p.categoryId = ?
-            AND LOWER(p.name) LIKE ?
-            AND LOWER(p.name) LIKE ?
-          ORDER BY 
-            CASE WHEN LOWER(p.name) LIKE ? THEN 0 ELSE 1 END,
-            pr.price ASC
-          LIMIT 1
-        `);
-        q1.bind([
-          chain,
-          product.id,
-          product.categoryId,
-          '%' + cleanTokens[0] + '%',
-          '%' + cleanTokens[1] + '%',
-          cleanTokens[0] + '%'
-        ]);
-        if (q1.step()) {
-          alt = q1.getAsObject();
-        }
-        q1.free();
-      } catch (e) {
-        console.error('Error q1 findAlternative:', e);
-      }
+    function getVariants(tok) {
+      const s = new Set([tok]);
+      if (tok.endsWith('s')) s.add(tok.slice(0, -1));
+      else s.add(tok + 's');
+      return Array.from(s);
     }
 
-    // 2. Coincide en los 2 términos principales aunque no tengamos categoría
-    if (!alt && cleanTokens.length >= 2) {
-      try {
-        const q2 = this.db.prepare(`
-          SELECT p.id, p.name, p.brand, p.format, p.imageUrl, pr.price, pr.referencePrice, pr.referenceUnit, s.chain
-          FROM Product p
-          JOIN PriceRecord pr ON p.id = pr.productId
-          JOIN Supermarket s ON pr.supermarketId = s.id
-          WHERE LOWER(s.chain) = LOWER(?)
-            AND p.id != ?
-            AND LOWER(p.name) LIKE ?
-            AND LOWER(p.name) LIKE ?
-          ORDER BY 
-            CASE WHEN LOWER(p.name) LIKE ? THEN 0 ELSE 1 END,
-            pr.price ASC
-          LIMIT 1
-        `);
-        q2.bind([
-          chain,
-          product.id,
-          '%' + cleanTokens[0] + '%',
-          '%' + cleanTokens[1] + '%',
-          cleanTokens[0] + '%'
-        ]);
-        if (q2.step()) {
-          alt = q2.getAsObject();
-        }
-        q2.free();
-      } catch (e) {
-        console.error('Error q2 findAlternative:', e);
-      }
+    const t0Vars = getVariants(cleanTokens[0]);
+    const t1Vars = cleanTokens[1] ? getVariants(cleanTokens[1]) : [];
+
+    let sql = `
+      SELECT p.id, p.name, p.brand, p.format, p.imageUrl, pr.price, pr.referencePrice, pr.referenceUnit, s.chain, p.categoryId
+      FROM Product p
+      JOIN PriceRecord pr ON p.id = pr.productId
+      JOIN Supermarket s ON pr.supermarketId = s.id
+      WHERE LOWER(s.chain) = LOWER(?)
+        AND p.id != ?
+    `;
+    const params = [chain, product.id];
+
+    const conds = [];
+    const t0Conds = t0Vars.map(() => `LOWER(p.name) LIKE ?`);
+    params.push(...t0Vars.map((v) => `%${v}%`));
+    conds.push(`(${t0Conds.join(' OR ')})`);
+
+    if (t1Vars.length > 0) {
+      const t1Conds = t1Vars.map(() => `LOWER(p.name) LIKE ?`);
+      params.push(...t1Vars.map((v) => `%${v}%`));
+      conds.push(`(${t1Conds.join(' OR ')})`);
     }
 
-    // 3. Si solo hay 1 término limpio (e.g. "azúcar", "sal") y coincide en misma categoría
-    if (!alt && cleanTokens.length === 1 && product.categoryId) {
-      try {
-        const q3 = this.db.prepare(`
-          SELECT p.id, p.name, p.brand, p.format, p.imageUrl, pr.price, pr.referencePrice, pr.referenceUnit, s.chain
-          FROM Product p
-          JOIN PriceRecord pr ON p.id = pr.productId
-          JOIN Supermarket s ON pr.supermarketId = s.id
-          WHERE LOWER(s.chain) = LOWER(?)
-            AND p.id != ?
-            AND p.categoryId = ?
-            AND LOWER(p.name) LIKE ?
-          ORDER BY 
-            CASE WHEN LOWER(p.name) LIKE ? THEN 0 ELSE 1 END,
-            pr.price ASC
-          LIMIT 1
-        `);
-        q3.bind([
-          chain,
-          product.id,
-          product.categoryId,
-          '%' + cleanTokens[0] + '%',
-          cleanTokens[0] + '%'
-        ]);
-        if (q3.step()) {
-          alt = q3.getAsObject();
-        }
-        q3.free();
-      } catch (e) {
-        console.error('Error q3 findAlternative:', e);
+    sql += ` AND ` + conds.join(' AND ');
+    sql += ` LIMIT 30`;
+
+    const candidates = [];
+    try {
+      const stmt = this.db.prepare(sql);
+      stmt.bind(params);
+      while (stmt.step()) {
+        candidates.push(stmt.getAsObject());
       }
+      stmt.free();
+    } catch (e) {
+      console.error('Error prepare findAlternative:', e);
     }
 
-    return alt;
+    if (candidates.length === 0) return null;
+
+    // Puntuación inteligente de alternativas
+    for (const c of candidates) {
+      let score = 0;
+      const nameLower = (c.name || '').toLowerCase();
+
+      // Misma categoría
+      if (product.categoryId && c.categoryId === product.categoryId) score += 40;
+
+      // Exclusión semántica (no mezclar cubos rígidos con bolsas de basura)
+      if (isBolsa && /cubo con pedal|cubo basura con pedal|cubo pedal/i.test(nameLower)) score -= 200;
+      if (isCubo && /bolsa/i.test(nameLower)) score -= 200;
+
+      // Coincidencia de litros/volumen
+      const candVol = nameLower.match(/(\d+)\s*(l|litros?)/i);
+      const candLiters = candVol ? parseInt(candVol[1], 10) : null;
+      if (targetLiters && candLiters) {
+        if (candLiters === targetLiters) {
+          score += 80;
+        } else {
+          const diff = Math.abs(candLiters - targetLiters);
+          score += Math.max(0, 40 - diff);
+        }
+      }
+
+      // Prefijo
+      if (nameLower.startsWith(cleanTokens[0])) score += 20;
+
+      c._score = score;
+    }
+
+    candidates.sort((a, b) => b._score - a._score || a.price - b.price);
+    return candidates[0] && candidates[0]._score > -50 ? candidates[0] : null;
   }
 
   // --- GESTIÓN DE LA LISTA DE LA COMPRA EN LOCALSTORAGE ---
@@ -709,6 +696,45 @@ class SuperSoriaClientDB {
       // Evaluar disponibilidad y alternativas por cada cadena de Soria
       const storeAvailability = {};
       for (const chain of CHAINS) {
+        // 0. Si el usuario fijó una decisión manual previa para esta cadena:
+        const manualChoice = item.manualEquivalents?.[chain];
+        if (manualChoice !== undefined) {
+          if (manualChoice === null) {
+            // Usuario decidió expresamente marcarlo como "No disponible / No comprar"
+            storeAvailability[chain] = {
+              status: 'unavailable',
+              price: 0,
+              referencePrice: null,
+              referenceUnit: null,
+              altProduct: null,
+              isManual: true,
+            };
+            continue;
+          } else {
+            // Usuario eligió un producto específico como alternativa
+            const altComp = this.getProductPriceComparison(manualChoice);
+            const altPrice = altComp?.product?.prices?.find((p) => p.supermarket?.chain?.toLowerCase() === chain.toLowerCase());
+            if (altPrice) {
+              storeAvailability[chain] = {
+                status: 'alternative',
+                price: altPrice.price,
+                referencePrice: altPrice.referencePrice,
+                referenceUnit: altPrice.referenceUnit,
+                altProduct: {
+                  id: altComp.product.id,
+                  name: altComp.product.name,
+                  brand: altComp.product.brand,
+                  format: altComp.product.format,
+                  imageUrl: altComp.product.imageUrl,
+                  price: altPrice.price,
+                },
+                isManual: true,
+              };
+              continue;
+            }
+          }
+        }
+
         const directPrice = product?.prices?.find((p) => p.supermarket?.chain?.toLowerCase() === chain.toLowerCase());
         if (directPrice) {
           storeAvailability[chain] = {
@@ -761,6 +787,7 @@ class SuperSoriaClientDB {
         customName: item.customName || product?.name || 'Artículo',
         quantity: Math.max(1, Number(item.quantity) || 1),
         checked: Boolean(item.checked),
+        manualEquivalents: item.manualEquivalents || {},
         product,
         storeAvailability,
       };
@@ -861,6 +888,7 @@ class SuperSoriaClientDB {
         const bestExact = sortedExact[0];
         const cost = +(bestExact.price * item.quantity).toFixed(2);
         bestOption = {
+          itemId: item.id,
           productName: item.customName,
           bestStore: bestExact.supermarket?.chain || 'Soria',
           price: bestExact.price,
@@ -886,6 +914,7 @@ class SuperSoriaClientDB {
         if (bestAlt) {
           const cost = +(bestAlt.price * item.quantity).toFixed(2);
           bestOption = {
+            itemId: item.id,
             productName: item.customName,
             bestStore: bestAlt.chain,
             price: bestAlt.price,
@@ -998,6 +1027,23 @@ class SuperSoriaClientDB {
     const items = this.getShoppingListItems().filter((i) => i.id !== itemId);
     this.saveShoppingListItems(items);
     return { success: true, ...this.getShoppingListData() };
+  }
+
+  // Establece o elimina una alternativa manual personalizada para un supermercado
+  setItemManualEquivalent(itemId, chain, alternativeProductId) {
+    const items = this.getShoppingListItems();
+    const item = items.find((i) => i.id === itemId);
+    if (!item) return { success: false, error: 'Artículo no encontrado' };
+
+    if (!item.manualEquivalents) item.manualEquivalents = {};
+    if (alternativeProductId === undefined) {
+      delete item.manualEquivalents[chain];
+    } else {
+      item.manualEquivalents[chain] = alternativeProductId; // ID de producto o null (no disponible)
+    }
+
+    this.saveShoppingListItems(items);
+    return { success: true, item, ...this.getShoppingListData() };
   }
 
   clearCompletedShoppingListItems() {
@@ -1164,7 +1210,14 @@ window.superSoriaClientDB = new SuperSoriaClientDB();
       return jsonResponse(client.deleteShoppingListItem(itemDeleteMatch[1]));
     }
 
-    // 12. /api/lists/:shareCode/items (POST)
+    // 12. /api/items/:id/equivalent (POST / PATCH)
+    const eqMatch = path.match(/^\/api\/items\/([^\/]+)\/equivalent$/);
+    if (eqMatch && (method === 'POST' || method === 'PATCH')) {
+      const { chain, alternativeProductId } = body;
+      return jsonResponse(client.setItemManualEquivalent(eqMatch[1], chain, alternativeProductId));
+    }
+
+    // 13. /api/lists/:shareCode/items (POST)
     if (path.match(/^\/api\/lists\/[^\/]+\/items$/) && method === 'POST') {
       return jsonResponse(client.addShoppingListItem(body));
     }

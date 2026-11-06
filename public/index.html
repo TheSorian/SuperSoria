@@ -461,19 +461,19 @@
 
       <!-- 2. TARJETA: ACTUALIZACIÓN DE LA APLICACIÓN (APK) -->
       <div class="bg-white border border-slate-200/90 shadow-sm rounded-3xl p-5 space-y-4">
-        <div class="flex items-start justify-between gap-3">
-          <div class="flex items-center gap-3">
+        <div class="flex items-start justify-between gap-2.5 flex-wrap sm:flex-nowrap">
+          <div class="flex items-center gap-3 min-w-0">
             <div class="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-xl shrink-0">
               📱
             </div>
-            <div>
-              <div class="flex items-center gap-2">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-1.5">
                 <h3 class="text-sm font-black text-slate-900 tracking-tight">Actualización del APK (Android)</h3>
-                <span id="apk-version-badge" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-wider">
-                  v1.2.5
+                <span id="apk-version-badge" class="px-2 py-0.5 bg-slate-100 text-slate-600 text-[10px] font-black rounded-full uppercase tracking-wider shrink-0">
+                  v1.2.6
                 </span>
               </div>
-              <p class="text-xs text-slate-500 mt-0.5">Versión instalada en tu dispositivo</p>
+              <p class="text-xs text-slate-500 mt-0.5 truncate">Versión instalada en tu dispositivo</p>
             </div>
           </div>
           <span class="px-2.5 py-1 bg-emerald-50 border border-emerald-200 text-emerald-700 text-[11px] font-extrabold rounded-full shrink-0">
@@ -591,10 +591,64 @@
   <!-- ========================================== -->
   <!-- MODAL: DESGLOSE DE CESTA ÓPTIMA Y AHORRO   -->
   <!-- ========================================== -->
-  <div id="optimal-breakdown-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-5 sm:p-6 shadow-2xl relative animate-slide-down">
+  <div id="optimal-breakdown-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6 shadow-2xl relative animate-slide-down">
       <button onclick="closeOptimalBreakdownModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-lg font-black w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center transition cursor-pointer">✕</button>
       <div id="optimal-breakdown-content"></div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- MODAL: SELECCIONAR ALTERNATIVA MANUAL       -->
+  <!-- ========================================== -->
+  <div id="select-alternative-modal" class="hidden fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-50 flex items-center justify-center p-3 sm:p-4">
+    <div class="bg-white rounded-3xl max-w-lg w-full max-h-[90vh] flex flex-col shadow-2xl relative animate-slide-down overflow-hidden">
+      <!-- Cabecera del Modal -->
+      <div class="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between">
+        <div class="flex items-center gap-2.5 min-w-0 pr-6">
+          <span id="alt-modal-chain-icon" class="text-2xl p-2 bg-slate-50 rounded-2xl border border-slate-200 shrink-0">🛒</span>
+          <div class="min-w-0">
+            <h3 id="alt-modal-title" class="text-sm sm:text-base font-black text-slate-900 truncate">
+              Seleccionar alternativa
+            </h3>
+            <p id="alt-modal-subtitle" class="text-[11px] text-slate-500 truncate mt-0.5">
+              Para sustituir producto
+            </p>
+          </div>
+        </div>
+        <button onclick="closeSelectAlternativeModal()" class="text-slate-400 hover:text-slate-600 text-base font-black w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center transition cursor-pointer shrink-0">✕</button>
+      </div>
+
+      <!-- Buscador interno en ese supermercado -->
+      <div class="p-3 sm:p-4 bg-slate-50/70 border-b border-slate-100 space-y-2">
+        <div class="relative">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">🔍</span>
+          <input 
+            type="text" 
+            id="alt-modal-search-input" 
+            oninput="debounceSearchAlternative()"
+            placeholder="Buscar sustituto en este supermercado..."
+            class="w-full pl-9 pr-3 py-2 text-xs sm:text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+          />
+        </div>
+        <div class="flex flex-wrap items-center justify-between gap-1 text-[11px] text-slate-500 px-1">
+          <span id="alt-modal-supermarket-tag" class="font-bold"></span>
+          <div class="flex items-center gap-1.5 ml-auto">
+            <button onclick="markItemUnavailableInChain()" class="text-rose-600 hover:text-rose-700 font-bold hover:underline">
+              🚫 No comprar aquí (0.00 €)
+            </button>
+            <span>•</span>
+            <button onclick="resetAutomaticAlternative()" class="text-blue-600 hover:text-blue-700 font-bold hover:underline">
+              Restablecer auto
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Resultados / Lista de Productos Alternativos -->
+      <div id="alt-modal-results" class="flex-1 overflow-y-auto p-3 sm:p-4 divide-y divide-slate-100">
+        <!-- Renderizado por JS -->
+      </div>
     </div>
   </div>
 
@@ -785,33 +839,36 @@
       const optimalBadge = document.getElementById('optimal-basket-badge');
       const optimalBanner = document.getElementById('optimal-basket-banner');
 
-      // Banner Cesta Óptima
+      // Banner Cesta Óptima (compacto y responsive en móvil)
       if (optimal && optimal.total > 0) {
         optimalBadge.innerHTML = `
           <button onclick="openOptimalBreakdownModal()" class="text-xs bg-emerald-100 hover:bg-emerald-200 text-emerald-800 font-bold px-3 py-1 rounded-full border border-emerald-300 flex items-center gap-1.5 shadow-xs transition cursor-pointer">
-            <span>⭐</span> Cesta óptima: ${optimal.total} €
+            <span>⭐</span> <span class="whitespace-nowrap">Cesta óptima: ${optimal.total} €</span>
           </button>
         `;
         optimalBadge.classList.remove('hidden');
 
         optimalBanner.innerHTML = `
-          <div class="flex items-center gap-3">
-            <span class="text-2xl p-2 bg-white rounded-2xl shadow-xs border border-emerald-200">🏆</span>
-            <div>
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-black text-emerald-900 uppercase tracking-wider">Cesta Óptima Multisuper:</span>
-                <span class="text-base font-black text-emerald-700">${optimal.total} €</span>
+          <div class="flex items-center justify-between gap-2.5 w-full flex-wrap sm:flex-nowrap">
+            <div class="flex items-center gap-2.5 min-w-0">
+              <span class="text-xl p-1.5 bg-white rounded-xl shadow-xs border border-emerald-200 shrink-0">🏆</span>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="text-[11px] font-black text-emerald-950 uppercase tracking-wider">Cesta Óptima:</span>
+                  <span class="text-base font-black text-emerald-700 whitespace-nowrap">${optimal.total} €</span>
+                  ${optimal.potentialSavings > 0 
+                    ? `<span class="text-[11px] font-extrabold text-blue-700 bg-blue-50 border border-blue-200 px-2 py-0.5 rounded-full whitespace-nowrap">Ahorras ${optimal.potentialSavings} €</span>` 
+                    : ''}
+                </div>
+                <p class="text-[11px] text-emerald-800 truncate hidden sm:block">
+                  Comprando cada producto donde es más barato en Soria.
+                </p>
               </div>
-              <p class="text-xs text-emerald-800">
-                ${optimal.potentialSavings > 0 
-                  ? `Comprando cada producto donde es más barato te ahorras hasta <strong class="text-emerald-950 font-black">${optimal.potentialSavings} €</strong> en tu compra.` 
-                  : 'Todos tus artículos calculados al mejor precio disponible en Soria.'}
-              </p>
             </div>
+            <button onclick="openOptimalBreakdownModal()" class="text-xs font-black px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition shadow-xs flex items-center gap-1.5 shrink-0 ml-auto cursor-pointer">
+              <span>📋</span> <span class="whitespace-nowrap">Ver desglose</span>
+            </button>
           </div>
-          <button onclick="openOptimalBreakdownModal()" class="text-xs font-black px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white transition self-end sm:self-center shadow-xs flex items-center gap-1.5 cursor-pointer">
-            <span>📋</span> Ver desglose
-          </button>
         `;
         optimalBanner.classList.remove('hidden');
       } else {
@@ -834,7 +891,7 @@
         return `
           <div 
             onclick="setListStoreFilter('${est.chain}')"
-            class="p-3 rounded-2xl border cursor-pointer transition flex flex-col justify-between ${
+            class="p-2.5 sm:p-3 rounded-2xl border cursor-pointer transition flex flex-col justify-between ${
               isActiveFilter 
                 ? 'ring-2 ring-blue-600 bg-blue-50/60 border-blue-400' 
                 : isWinner 
@@ -843,17 +900,18 @@
             }"
           >
             <div>
-              <div class="flex items-center justify-between mb-1">
+              <div class="flex items-center justify-between mb-0.5">
                 <span class="text-xs font-black ${style.textCol} flex items-center gap-1 truncate">
                   <span>${style.icon}</span> ${est.chain}
                 </span>
                 ${isWinner ? '<span class="text-[9px] font-black bg-emerald-600 text-white px-1.5 py-0.2 rounded-full uppercase">Top</span>' : ''}
               </div>
-              <span class="text-base font-black text-slate-900 block mt-0.5">${est.total > 0 ? est.total.toFixed(2) + ' €' : '-'}</span>
+              <span class="text-sm sm:text-base font-black text-slate-900 block mt-0.5 whitespace-nowrap">${est.total > 0 ? est.total.toFixed(2) + ' €' : '-'}</span>
             </div>
-            <span class="text-[10px] mt-1 block leading-tight ${missingCount === 0 && est.total > 0 ? 'text-emerald-700 font-bold' : 'text-slate-500'}">
-              ${exactCount} exactos${altCount > 0 ? ` + <strong class="text-indigo-700 font-bold">${altCount} eq</strong>` : ''}${missingCount > 0 ? ` • <span class="text-rose-600 font-bold">faltan ${missingCount}</span>` : ''}
-            </span>
+            <div class="text-[10px] mt-1 leading-tight flex flex-col gap-0.5 text-slate-500 overflow-hidden">
+              <span class="whitespace-nowrap">${exactCount} exactos${altCount > 0 ? ` • <strong class="text-indigo-700">${altCount} alt</strong>` : ''}</span>
+              <span class="whitespace-nowrap">${missingCount > 0 ? `<span class="text-rose-600 font-bold">⚠️ Faltan ${missingCount}</span>` : `<span class="text-emerald-700 font-bold">✓ Completo</span>`}</span>
+            </div>
           </div>
         `;
       }).join('');
@@ -1007,112 +1065,130 @@
       const style = getChainStyle(displayChain);
 
       return `
-        <div class="p-3.5 sm:px-5 flex items-center justify-between gap-3 hover:bg-slate-50/70 transition ${
+        <div class="p-3 sm:p-4 hover:bg-slate-50/70 transition space-y-2 ${
           item.checked ? 'bg-slate-50/80 opacity-60' : status === 'unavailable' && activeListStoreFilter ? 'bg-rose-50/20' : ''
         }">
           
-          <!-- Izquierda: Checkbox + Miniatura + Texto -->
-          <div class="flex items-center gap-3.5 flex-1 min-w-0">
-            <input 
-              type="checkbox" 
-              ${item.checked ? 'checked' : ''} 
-              onchange="toggleItem('${item.id}')"
-              class="w-5 h-5 rounded-lg text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600"
-            />
+          <!-- FILA SUPERIOR: Checkbox + Miniatura + Nombre completo + Botón Eliminar -->
+          <div class="flex items-start gap-2.5 justify-between">
+            <div class="flex items-start gap-2.5 flex-1 min-w-0">
+              <input 
+                type="checkbox" 
+                ${item.checked ? 'checked' : ''} 
+                onchange="toggleItem('${item.id}')"
+                class="w-5 h-5 mt-0.5 rounded-lg text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600 shrink-0"
+              />
 
-            <!-- Imagen del Producto (o de la alternativa si aplica) -->
-            <div class="w-12 h-12 bg-slate-50 rounded-2xl border border-slate-200/80 flex items-center justify-center overflow-hidden shrink-0 relative">
-              ${(altInfo?.imageUrl || prod?.imageUrl) ? `
-                <img src="${altInfo?.imageUrl || prod?.imageUrl}" alt="${item.customName}" class="w-full h-full object-contain p-1" onerror="this.src='https://placehold.co/100x100?text=Soria'"/>
-              ` : `
-                <span class="text-xl text-slate-300">🛒</span>
-              `}
-              ${status === 'alternative' ? `
-                <span class="absolute bottom-0 right-0 bg-indigo-600 text-white text-[8px] px-1 rounded-tl-md font-black">Eq</span>
-              ` : ''}
-            </div>
-
-            <!-- Detalles del Producto -->
-            <div class="min-w-0 flex-1">
-              <p class="text-sm font-bold text-slate-800 truncate ${item.checked ? 'line-through text-slate-400' : ''}">
-                ${item.customName}
-              </p>
-              
-              <!-- Si es una alternativa equivalente en este súper -->
-              ${status === 'alternative' && altInfo ? `
-                <div class="mt-0.5 text-[11px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-200/80 inline-flex items-center gap-1 max-w-full">
-                  <span class="font-black shrink-0">🔄 Alternativa:</span> 
-                  <span class="truncate">${altInfo.name}</span>
-                </div>
-              ` : ''}
-
-              <!-- Si no está disponible en este súper -->
-              ${status === 'unavailable' && activeListStoreFilter ? `
-                <div class="mt-0.5 text-[11px] text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200/80 inline-flex items-center gap-1 font-bold">
-                  <span>❌ No disponible en ${activeListStoreFilter}</span>
-                  <span class="text-[10px] text-rose-500 font-medium">(0.00 € no sumado)</span>
-                </div>
-              ` : ''}
-
-              <div class="flex flex-wrap items-center gap-1.5 mt-1">
-                ${prod?.brand && status !== 'alternative' ? `<span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">${prod.brand}</span>` : ''}
-                ${prod?.format ? `<span class="text-[10px] text-slate-400">• ${prod.format}</span>` : ''}
-                
-                ${status === 'exact' ? `
-                  <span class="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${style.bg} ${style.text}">
-                    <span>${style.icon}</span> ${displayChain}
-                  </span>
-                  <span class="text-xs font-black text-slate-800">
-                    ${displayPrice.toFixed(2)} € ${qty > 1 ? `<span class="text-[10px] font-medium text-slate-400">(Total: ${displayTotal.toFixed(2)} €)</span>` : ''}
-                  </span>
-                ` : status === 'alternative' ? `
-                  <span class="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200">
-                    <span>${style.icon}</span> ${displayChain}
-                  </span>
-                  <span class="text-xs font-black text-indigo-900">
-                    ${displayPrice.toFixed(2)} € ${qty > 1 ? `<span class="text-[10px] font-medium text-indigo-500">(Total: ${displayTotal.toFixed(2)} €)</span>` : ''}
-                  </span>
-                ` : !activeListStoreFilter ? `
-                  <span class="text-[10px] font-medium text-slate-400 italic">Sin precio vinculado</span>
+              <!-- Imagen del Producto (o de la alternativa si aplica) -->
+              <div class="w-10 h-10 bg-slate-50 rounded-xl border border-slate-200/80 flex items-center justify-center overflow-hidden shrink-0 relative">
+                ${(altInfo?.imageUrl || prod?.imageUrl) ? `
+                  <img src="${altInfo?.imageUrl || prod?.imageUrl}" alt="${item.customName}" class="w-full h-full object-contain p-0.5" onerror="this.src='https://placehold.co/100x100?text=Soria'"/>
+                ` : `
+                  <span class="text-base text-slate-300">🛒</span>
+                `}
+                ${status === 'alternative' ? `
+                  <span class="absolute bottom-0 right-0 bg-indigo-600 text-white text-[8px] px-1 rounded-tl-md font-black">Eq</span>
                 ` : ''}
               </div>
-            </div>
-          </div>
 
-          <!-- Derecha: Stepper Cantidad + Acciones -->
-          <div class="flex items-center gap-2 shrink-0">
-            <!-- Stepper Cantidad [-] [qty] [+] -->
-            <div class="flex items-center bg-slate-100 rounded-xl border border-slate-200 p-0.5">
-              <button 
-                onclick="changeItemQty('${item.id}', -1, ${item.quantity})" 
-                class="w-6 h-6 flex items-center justify-center font-black text-slate-600 hover:text-blue-700 hover:bg-white rounded-lg transition"
-              >-</button>
-              <span class="w-6 text-center text-xs font-black text-slate-800">${item.quantity}</span>
-              <button 
-                onclick="changeItemQty('${item.id}', 1, ${item.quantity})" 
-                class="w-6 h-6 flex items-center justify-center font-black text-slate-600 hover:text-blue-700 hover:bg-white rounded-lg transition"
-              >+</button>
+              <!-- Detalles del Producto: Nombre con ancho completo -->
+              <div class="min-w-0 flex-1">
+                <p class="text-xs sm:text-sm font-bold text-slate-800 leading-snug break-words ${item.checked ? 'line-through text-slate-400' : ''}">
+                  ${item.customName}
+                </p>
+                <div class="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
+                  ${prod?.brand && status !== 'alternative' ? `<span class="font-bold text-slate-500 uppercase tracking-wider">${prod.brand}</span>` : ''}
+                  ${prod?.format ? `<span>• ${prod.format}</span>` : ''}
+                </div>
+              </div>
             </div>
 
-            <!-- Botón Comparativa -->
-            ${prod ? `
-              <button 
-                onclick="openCompareModal('${prod.id}')" 
-                title="Comparar precios entre supermercados" 
-                class="p-2 text-xs font-bold text-slate-600 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 rounded-xl transition"
-              >
-                🔍
-              </button>
-            ` : ''}
-
-            <!-- Botón Eliminar -->
+            <!-- Botón Eliminar (esquina superior derecha, fácil de pulsar) -->
             <button 
               onclick="deleteItem('${item.id}')" 
               title="Eliminar de la lista" 
-              class="p-2 text-xs text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition"
+              class="p-1 text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition shrink-0 ml-1"
             >
               🗑️
             </button>
+          </div>
+
+          <!-- FILA INFERIOR: Precio / Supermercado / Alternativa a la izquierda + Stepper y Comparar a la derecha -->
+          <div class="flex items-center justify-between gap-2 pt-1 border-t border-slate-100/70 pl-7 sm:pl-8">
+            <!-- Información de precio y tienda / alternativa -->
+            <div class="flex flex-wrap items-center gap-1.5 min-w-0 flex-1">
+              ${status === 'exact' ? `
+                <span class="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full ${style.bg} ${style.text} whitespace-nowrap">
+                  <span>${style.icon}</span> ${displayChain}
+                </span>
+                <span class="text-xs font-black text-slate-900 whitespace-nowrap">
+                  ${displayPrice.toFixed(2)} € ${qty > 1 ? `<span class="text-[10px] font-medium text-slate-400">(${displayTotal.toFixed(2)} €)</span>` : ''}
+                </span>
+              ` : status === 'alternative' ? `
+                <span class="inline-flex items-center gap-1 text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 border border-indigo-200 whitespace-nowrap">
+                  <span>${style.icon}</span> ${displayChain}
+                </span>
+                <span class="text-xs font-black text-indigo-900 whitespace-nowrap">
+                  ${displayPrice.toFixed(2)} € ${qty > 1 ? `<span class="text-[10px] font-medium text-indigo-500">(${displayTotal.toFixed(2)} €)</span>` : ''}
+                </span>
+                ${activeListStoreFilter ? `
+                  <button 
+                    onclick="openSelectAlternativeModal('${item.id}', '${activeListStoreFilter}', '${escapeHtml(item.customName)}')"
+                    class="text-[10px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-lg border border-indigo-200 transition flex items-center gap-1 whitespace-nowrap"
+                    title="Cambiar el producto alternativo elegido para ${activeListStoreFilter}"
+                  >
+                    <span>🔄</span> Cambiar
+                  </button>
+                ` : ''}
+              ` : activeListStoreFilter ? `
+                <span class="text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-lg border border-rose-200 whitespace-nowrap">
+                  ❌ No en ${activeListStoreFilter}
+                </span>
+                <button 
+                  onclick="openSelectAlternativeModal('${item.id}', '${activeListStoreFilter}', '${escapeHtml(item.customName)}')"
+                  class="text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded-lg border border-blue-200 transition flex items-center gap-1 whitespace-nowrap"
+                  title="Elegir una alternativa en ${activeListStoreFilter}"
+                >
+                  <span>🔍</span> Elegir alternativa
+                </button>
+              ` : `
+                <span class="text-[10px] font-medium text-slate-400 italic">Sin precio vinculado</span>
+              `}
+
+              <!-- Nota de nombre de la alternativa -->
+              ${status === 'alternative' && altInfo ? `
+                <span class="text-[10px] text-indigo-600 truncate max-w-[150px] sm:max-w-xs block" title="${altInfo.name}">
+                  Alt: ${altInfo.name}
+                </span>
+              ` : ''}
+            </div>
+
+            <!-- Derecha: Stepper Cantidad + Botón Comparar -->
+            <div class="flex items-center gap-1.5 shrink-0 ml-auto">
+              <!-- Stepper Cantidad [-] [qty] [+] -->
+              <div class="flex items-center bg-slate-100 rounded-xl border border-slate-200 p-0.5">
+                <button 
+                  onclick="changeItemQty('${item.id}', -1, ${item.quantity})" 
+                  class="w-6 h-6 flex items-center justify-center font-black text-slate-600 hover:text-blue-700 hover:bg-white rounded-lg transition"
+                >-</button>
+                <span class="w-5 text-center text-xs font-black text-slate-800">${item.quantity}</span>
+                <button 
+                  onclick="changeItemQty('${item.id}', 1, ${item.quantity})" 
+                  class="w-6 h-6 flex items-center justify-center font-black text-slate-600 hover:text-blue-700 hover:bg-white rounded-lg transition"
+                >+</button>
+              </div>
+
+              <!-- Botón Comparativa -->
+              ${prod ? `
+                <button 
+                  onclick="openCompareModal('${prod.id}')" 
+                  title="Comparar precios entre supermercados" 
+                  class="p-1.5 text-xs font-bold text-slate-600 hover:text-blue-700 bg-slate-100 hover:bg-blue-50 rounded-xl transition"
+                >
+                  🔍
+                </button>
+              ` : ''}
+            </div>
           </div>
 
         </div>
@@ -1744,7 +1820,17 @@
                     ${grp.items.map(it => `
                       <div class="py-1.5 px-2 flex items-center justify-between text-xs hover:bg-slate-50 rounded-xl transition">
                         <div class="min-w-0 pr-2">
-                          <p class="font-bold text-slate-800 truncate">${it.quantity > 1 ? `<span class="text-blue-700">${it.quantity}x</span> ` : ''}${it.productName}</p>
+                          <div class="flex items-center gap-1.5 flex-wrap">
+                            <p class="font-bold text-slate-800 truncate">${it.quantity > 1 ? `<span class="text-blue-700">${it.quantity}x</span> ` : ''}${it.productName}</p>
+                            ${it.itemId ? `
+                              <button 
+                                onclick="closeOptimalBreakdownModal(); openSelectAlternativeModal('${it.itemId}', '${storeName}', '${(it.productName || '').replace(/'/g, "\\'")}')" 
+                                class="text-[10px] text-indigo-600 hover:text-indigo-800 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-1.5 py-0.5 rounded cursor-pointer whitespace-nowrap" 
+                                title="Cambiar alternativa en ${storeName}">
+                                ✏️ Cambiar
+                              </button>
+                            ` : ''}
+                          </div>
                           ${it.isAlternative && it.altName ? `
                             <p class="text-[11px] text-indigo-600 flex items-center gap-1 mt-0.5">
                               <span>🔄</span> Alternativa: ${it.altName}
@@ -1752,8 +1838,8 @@
                           ` : ''}
                         </div>
                         <div class="text-right shrink-0">
-                          <span class="font-black text-slate-900 block">${it.subtotal.toFixed(2)} €</span>
-                          ${it.quantity > 1 ? `<span class="text-[10px] text-slate-400">(${it.price.toFixed(2)} €/ud)</span>` : ''}
+                          <span class="font-black text-slate-900 block whitespace-nowrap">${it.subtotal.toFixed(2)} €</span>
+                          ${it.quantity > 1 ? `<span class="text-[10px] text-slate-400 block whitespace-nowrap">(${it.price.toFixed(2)} €/ud)</span>` : ''}
                         </div>
                       </div>
                     `).join('')}
@@ -1855,6 +1941,264 @@
     }
 
     // ====================================================
+    // MODAL: SELECCIONAR ALTERNATIVA MANUAL
+    // ====================================================
+    let currentAltModal = {
+      itemId: null,
+      chain: null,
+      originalName: '',
+      timer: null
+    };
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function openSelectAlternativeModal(itemId, chain, customName) {
+      currentAltModal = {
+        itemId,
+        chain,
+        originalName: customName || '',
+        timer: null
+      };
+
+      const modal = document.getElementById('select-alternative-modal');
+      const titleEl = document.getElementById('alt-modal-title');
+      const subtitleEl = document.getElementById('alt-modal-subtitle');
+      const iconEl = document.getElementById('alt-modal-chain-icon');
+      const tagEl = document.getElementById('alt-modal-supermarket-tag');
+      const inputEl = document.getElementById('alt-modal-search-input');
+      const resultsEl = document.getElementById('alt-modal-results');
+
+      if (!modal) return;
+
+      const style = getChainStyle(chain);
+      if (iconEl) iconEl.textContent = style.icon || '🛒';
+      if (titleEl) titleEl.textContent = `Alternativa en ${chain}`;
+      if (subtitleEl) subtitleEl.textContent = `Para sustituir: "${customName}"`;
+      if (tagEl) {
+        tagEl.innerHTML = `<span class="${style.textCol || 'text-slate-800'}">${style.icon} Catálogo de ${chain}</span>`;
+      }
+
+      const initialSearch = (customName || '').trim();
+      if (inputEl) inputEl.value = initialSearch;
+
+      if (resultsEl) {
+        resultsEl.innerHTML = `
+          <div class="p-6 text-center text-xs text-slate-400">
+            <div class="inline-block animate-spin rounded-full h-5 w-5 border-2 border-blue-600 border-t-transparent mb-2"></div>
+            <p>Buscando opciones en ${chain}...</p>
+          </div>
+        `;
+      }
+
+      modal.classList.remove('hidden');
+      searchAlternativeProducts(initialSearch);
+    }
+
+    function closeSelectAlternativeModal() {
+      const modal = document.getElementById('select-alternative-modal');
+      if (modal) modal.classList.add('hidden');
+      if (currentAltModal.timer) clearTimeout(currentAltModal.timer);
+    }
+
+    function debounceSearchAlternative() {
+      if (currentAltModal.timer) clearTimeout(currentAltModal.timer);
+      currentAltModal.timer = setTimeout(() => {
+        const inputEl = document.getElementById('alt-modal-search-input');
+        searchAlternativeProducts(inputEl ? inputEl.value.trim() : '');
+      }, 250);
+    }
+
+    async function searchAlternativeProducts(query) {
+      const resultsEl = document.getElementById('alt-modal-results');
+      if (!resultsEl) return;
+
+      const chain = currentAltModal.chain;
+      if (!chain) return;
+
+      const q = query || currentAltModal.originalName || '';
+
+      try {
+        const url = `/api/products?q=${encodeURIComponent(q)}&supermarket=${encodeURIComponent(chain)}&limit=30`;
+        const res = await fetch(url);
+        const data = await res.json();
+        const products = data.products || [];
+
+        if (products.length === 0) {
+          const firstWord = q.split(/\s+/)[0];
+          if (firstWord && firstWord.length > 2 && firstWord !== q) {
+            const fallbackRes = await fetch(`/api/products?q=${encodeURIComponent(firstWord)}&supermarket=${encodeURIComponent(chain)}&limit=30`);
+            const fallbackData = await fallbackRes.json();
+            if (fallbackData.products && fallbackData.products.length > 0) {
+              renderAlternativeResults(fallbackData.products, chain);
+              return;
+            }
+          }
+
+          resultsEl.innerHTML = `
+            <div class="p-6 text-center space-y-2 text-xs">
+              <span class="text-3xl block">🔍</span>
+              <p class="font-bold text-slate-700">No encontramos productos en ${chain} con "${escapeHtml(q)}"</p>
+              <p class="text-slate-400">Prueba con palabras más genéricas (ej: leche, arroz, bolsas, detergente...)</p>
+            </div>
+          `;
+          return;
+        }
+
+        renderAlternativeResults(products, chain);
+      } catch (err) {
+        console.error('Error buscando alternativas:', err);
+        resultsEl.innerHTML = `
+          <div class="p-6 text-center text-xs text-rose-500">
+            Error al consultar productos en ${chain}. Inténtalo de nuevo.
+          </div>
+        `;
+      }
+    }
+
+    function renderAlternativeResults(products, chain) {
+      const resultsEl = document.getElementById('alt-modal-results');
+      if (!resultsEl) return;
+
+      const style = getChainStyle(chain);
+
+      resultsEl.innerHTML = products.map(prod => {
+        const priceObj = (prod.prices || []).find(p => 
+          (p.supermarket?.chain || '').toLowerCase() === chain.toLowerCase() ||
+          (p.supermarketChain || '').toLowerCase() === chain.toLowerCase()
+        ) || (prod.prices && prod.prices[0]);
+
+        const priceText = priceObj ? `${priceObj.price.toFixed(2)} €` : '-';
+        const refPrice = priceObj && priceObj.referencePrice && priceObj.referenceUnit ? 
+          `(${priceObj.referencePrice.toFixed(2)} €/${priceObj.referenceUnit})` : '';
+
+        const escapedName = escapeHtml(prod.name);
+        const escapedBrand = escapeHtml(prod.brand || '');
+        const escapedFormat = escapeHtml(prod.format || '');
+
+        return `
+          <div class="py-2.5 px-2 flex items-center justify-between gap-2.5 hover:bg-slate-50 transition rounded-xl">
+            <div class="flex items-center gap-2.5 min-w-0 flex-1">
+              ${prod.imageUrl ? `
+                <img src="${prod.imageUrl}" alt="${escapedName}" class="w-10 h-10 object-contain rounded-lg border border-slate-100 bg-white shrink-0" onerror="this.src='assets/icon-192.png'" />
+              ` : `
+                <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-base shrink-0">🛒</div>
+              `}
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-bold text-slate-900 truncate leading-snug" title="${escapedName}">${escapedName}</p>
+                <div class="flex items-center gap-1.5 text-[11px] text-slate-500 truncate mt-0.5">
+                  ${escapedBrand ? `<span class="font-medium text-slate-700">${escapedBrand}</span>` : ''}
+                  ${escapedFormat ? `<span>• ${escapedFormat}</span>` : ''}
+                </div>
+              </div>
+            </div>
+
+            <div class="text-right shrink-0 flex items-center gap-2">
+              <div>
+                <span class="text-xs font-black ${style.textCol || 'text-slate-900'} block whitespace-nowrap">${priceText}</span>
+                ${refPrice ? `<span class="text-[9px] text-slate-400 block whitespace-nowrap">${refPrice}</span>` : ''}
+              </div>
+              <button 
+                onclick="selectManualAlternative('${prod.id}')"
+                class="px-2.5 py-1.5 text-xs font-extrabold bg-blue-600 hover:bg-blue-700 active:scale-95 text-white rounded-xl shadow-xs transition cursor-pointer whitespace-nowrap"
+              >
+                Elegir
+              </button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    async function selectManualAlternative(productId) {
+      if (!currentAltModal.itemId || !currentAltModal.chain) return;
+
+      try {
+        const res = await fetch(`/api/items/${encodeURIComponent(currentAltModal.itemId)}/equivalent`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chain: currentAltModal.chain,
+            alternativeProductId: productId
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Alternativa guardada para ${currentAltModal.chain}`);
+          closeSelectAlternativeModal();
+          await loadShoppingList();
+        } else {
+          showToast(data.error || 'Error al guardar alternativa');
+        }
+      } catch (err) {
+        console.error('Error al guardar alternativa:', err);
+        showToast('Error al actualizar alternativa');
+      }
+    }
+
+    async function markItemUnavailableInChain() {
+      if (!currentAltModal.itemId || !currentAltModal.chain) return;
+
+      try {
+        const res = await fetch(`/api/items/${encodeURIComponent(currentAltModal.itemId)}/equivalent`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chain: currentAltModal.chain,
+            alternativeProductId: 'none'
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Marcado como no disponible en ${currentAltModal.chain}`);
+          closeSelectAlternativeModal();
+          await loadShoppingList();
+        } else {
+          showToast(data.error || 'Error al actualizar');
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        showToast('Error al actualizar');
+      }
+    }
+
+    async function resetAutomaticAlternative() {
+      if (!currentAltModal.itemId || !currentAltModal.chain) return;
+
+      try {
+        const res = await fetch(`/api/items/${encodeURIComponent(currentAltModal.itemId)}/equivalent`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chain: currentAltModal.chain,
+            alternativeProductId: null
+          })
+        });
+
+        const data = await res.json();
+        if (data.success) {
+          showToast(`Restablecida alternativa automática en ${currentAltModal.chain}`);
+          closeSelectAlternativeModal();
+          await loadShoppingList();
+        } else {
+          showToast(data.error || 'Error al restablecer');
+        }
+      } catch (err) {
+        console.error('Error:', err);
+        showToast('Error al restablecer');
+      }
+    }
+
+    // ====================================================
     // TAB 3: SUPERMERCADOS GENÉRICOS EN SORIA
     // ====================================================
     async function loadSupermarkets() {
@@ -1869,17 +2213,17 @@
           return `
             <div class="bg-white border border-slate-200/90 rounded-3xl p-5 shadow-xs space-y-3 flex flex-col justify-between hover:shadow-md transition">
               <div>
-                <div class="flex items-center justify-between mb-3">
-                  <div class="flex items-center gap-2">
-                    <span class="w-9 h-9 rounded-2xl ${style.bg} ${style.text} flex items-center justify-center text-lg shadow-xs font-black">
+                <div class="flex items-start justify-between gap-2 mb-3">
+                  <div class="flex items-center gap-2.5 min-w-0">
+                    <span class="w-9 h-9 rounded-2xl ${style.bg} ${style.text} flex items-center justify-center text-lg shadow-xs font-black shrink-0">
                       ${style.icon}
                     </span>
-                    <div>
-                      <h4 class="text-base font-black text-slate-900">${sm.chain}</h4>
-                      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Supermercado en Soria</span>
+                    <div class="min-w-0">
+                      <h4 class="text-base font-black text-slate-900 truncate">${sm.chain}</h4>
+                      <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block truncate">Supermercado en Soria</span>
                     </div>
                   </div>
-                  <span class="text-xs font-black text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-xl">
+                  <span class="text-[11px] font-black text-slate-700 bg-slate-100 border border-slate-200 px-2.5 py-1 rounded-xl shrink-0 whitespace-nowrap">
                     ${sm.priceRecordsCount ? sm.priceRecordsCount.toLocaleString() : 'Catálogo activo'} precios
                   </span>
                 </div>

@@ -190,6 +190,9 @@ export class ListService {
         itemsFound: number;
         totalItems: number;
         missingItems: string[];
+        exactCount?: number;
+        altCount?: number;
+        missingCount?: number;
       };
     } = {};
 
@@ -214,8 +217,44 @@ export class ListService {
       const prices = item.product?.prices || [];
       const itemQty = item.quantity || 1;
 
+      let manualEquivalents: Record<string, string> = {};
+      try {
+        if (item.notes) {
+          const parsed = JSON.parse(item.notes);
+          if (parsed && typeof parsed === 'object' && parsed.manualEquivalents) {
+            manualEquivalents = parsed.manualEquivalents;
+          }
+        }
+      } catch {}
+
       // Buscar mejor precio por cada cadena en Soria
       for (const ch of chains) {
+        // Si el usuario marcó explícitamente "none", no comprar aquí
+        if (manualEquivalents[ch] === 'none') {
+          chainEstimates[ch].missingItems.push(item.product?.name || item.customName);
+          (chainEstimates[ch] as any).missingCount += 1;
+          continue;
+        }
+
+        // Si el usuario eligió una alternativa manual específica
+        if (manualEquivalents[ch]) {
+          const manualProd = await prisma.product.findUnique({
+            where: { id: manualEquivalents[ch] },
+            include: {
+              prices: {
+                where: { supermarket: { chain: { equals: ch } } },
+                orderBy: { price: 'asc' },
+              },
+            },
+          });
+          if (manualProd && manualProd.prices.length > 0) {
+            chainEstimates[ch].total += +(manualProd.prices[0].price * itemQty).toFixed(2);
+            chainEstimates[ch].itemsFound += 1;
+            (chainEstimates[ch] as any).altCount += 1;
+            continue;
+          }
+        }
+
         const chPrices = prices.filter(
           (p: any) => p.supermarket && p.supermarket.chain.toLowerCase() === ch.toLowerCase()
         );
@@ -273,6 +312,7 @@ export class ListService {
         optimalTotal += subtotal;
         optimalFound += 1;
         optimalPlan.push({
+          itemId: item.id,
           productName: item.customName || item.product?.name || 'Artículo',
           bestStore: best.supermarket?.chain || 'Soria',
           price: best.price,

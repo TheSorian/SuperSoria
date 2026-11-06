@@ -200,6 +200,36 @@ router.patch('/items/:id/quantity', async (req: Request, res: Response) => {
   }
 });
 
+router.patch('/items/:id/equivalent', async (req: Request, res: Response) => {
+  try {
+    const { chain, alternativeProductId } = req.body;
+    const item = await prisma.listItem.findUnique({ where: { id: req.params.id } });
+    if (!item) return res.status(404).json({ success: false, error: 'Ítem no encontrado' });
+
+    let notesObj: any = {};
+    try {
+      if (item.notes) notesObj = JSON.parse(item.notes);
+    } catch {
+      notesObj = {};
+    }
+    if (!notesObj.manualEquivalents) notesObj.manualEquivalents = {};
+    if (alternativeProductId === null) {
+      delete notesObj.manualEquivalents[chain];
+    } else {
+      notesObj.manualEquivalents[chain] = alternativeProductId;
+    }
+
+    await prisma.listItem.update({
+      where: { id: req.params.id },
+      data: { notes: JSON.stringify(notesObj) },
+    });
+
+    res.json({ success: true, message: 'Alternativa actualizada' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 router.delete('/lists/:shareCode/completed', async (req: Request, res: Response) => {
   try {
     const listData = await listService.getListByCode(req.params.shareCode);
