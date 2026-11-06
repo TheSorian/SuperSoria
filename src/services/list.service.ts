@@ -198,6 +198,9 @@ export class ListService {
         chain: ch,
         total: 0,
         itemsFound: 0,
+        exactCount: 0,
+        altCount: 0,
+        missingCount: 0,
         totalItems: items.length,
         missingItems: [],
       };
@@ -205,6 +208,7 @@ export class ListService {
 
     let optimalTotal = 0;
     let optimalFound = 0;
+    const optimalPlan: any[] = [];
 
     for (const item of items) {
       const prices = item.product?.prices || [];
@@ -219,6 +223,7 @@ export class ListService {
           const bestPrice = Math.min(...chPrices.map((p: any) => p.price));
           chainEstimates[ch].total += +(bestPrice * itemQty).toFixed(2);
           chainEstimates[ch].itemsFound += 1;
+          (chainEstimates[ch] as any).exactCount += 1;
         } else {
           // Intentar buscar alternativa en esa cadena
           let altFound = false;
@@ -247,6 +252,7 @@ export class ListService {
               if (alt && alt.prices.length > 0) {
                 chainEstimates[ch].total += +(alt.prices[0].price * itemQty).toFixed(2);
                 chainEstimates[ch].itemsFound += 1;
+                (chainEstimates[ch] as any).altCount += 1;
                 altFound = true;
               }
             }
@@ -254,20 +260,39 @@ export class ListService {
           if (!altFound) {
             // NO DISPONIBLE: NO SUMAR AL TOTAL
             chainEstimates[ch].missingItems.push(item.product?.name || item.customName);
+            (chainEstimates[ch] as any).missingCount += 1;
           }
         }
       }
 
       // Para la cesta óptima (comprando en el más barato de cada uno)
       if (prices.length > 0) {
-        const minPrice = Math.min(...prices.map((p: any) => p.price));
-        optimalTotal += +(minPrice * itemQty).toFixed(2);
+        const sorted = [...prices].sort((a: any, b: any) => a.price - b.price);
+        const best = sorted[0];
+        const subtotal = +(best.price * itemQty).toFixed(2);
+        optimalTotal += subtotal;
         optimalFound += 1;
+        optimalPlan.push({
+          productName: item.customName || item.product?.name || 'Artículo',
+          bestStore: best.supermarket?.chain || 'Soria',
+          price: best.price,
+          quantity: itemQty,
+          subtotal,
+          isAlternative: false,
+          altName: null,
+          imageUrl: item.product?.imageUrl || null,
+        });
       }
     }
 
     const sortedChains = Object.values(chainEstimates)
-      .map((c) => ({ ...c, total: +c.total.toFixed(2) }))
+      .map((c) => ({
+        ...c,
+        total: +c.total.toFixed(2),
+        exactCount: (c as any).exactCount || 0,
+        altCount: (c as any).altCount || 0,
+        missingCount: (c as any).missingCount || c.missingItems.length,
+      }))
       .sort((a, b) => b.itemsFound - a.itemsFound || (a.total > 0 && b.total > 0 ? a.total - b.total : 0));
 
     const validTotals = sortedChains.filter((c) => c.itemsFound > 0).map((c) => c.total);
@@ -281,6 +306,7 @@ export class ListService {
         itemsFound: optimalFound,
         totalItems: items.length,
         potentialSavings: potentialSavings > 0 ? potentialSavings : 0,
+        plan: optimalPlan,
       },
     };
   }
