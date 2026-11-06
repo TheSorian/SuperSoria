@@ -1,11 +1,11 @@
 {
   "appName": "SuperSoria",
   "version": "1.0.0",
-  "generatedAt": "2026-11-06T18:52:40.925Z",
-  "sha256": "b6ac024b5a43edc3545da0cff533fe79023a59877138aeec5cd79ff1ede7f3c9",
-  "fileSizeCompressedBytes": 17491514,
-  "fileSizeCompressedMB": 16.68,
-  "fileSizeUncompressedMB": 49.11,
+  "generatedAt": "2026-11-06T20:01:49.738Z",
+  "sha256": "a5120ceb620a1b50d371e889ff9551b9f6c5d4bf3f4de0fb11278bb8b1c2b4e1",
+  "fileSizeCompressedBytes": 17687936,
+  "fileSizeCompressedMB": 16.87,
+  "fileSizeUncompressedMB": 49.72,
   "stats": {
     "totalProducts": 47150,
     "totalPriceRecords": 81898,
