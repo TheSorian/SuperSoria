@@ -786,7 +786,14 @@
       });
 
       if (tab === 'list') loadShoppingList();
-      if (tab === 'comparator') loadProducts();
+      if (tab === 'comparator') {
+        if (!window._comparatorLoaded) {
+          window._comparatorLoaded = true;
+          loadCategories();
+          loadBrands();
+        }
+        loadProducts();
+      }
       if (tab === 'supermarkets') loadSupermarkets();
       if (tab === 'scrapers') loadSettingsTab();
     }
@@ -1065,7 +1072,7 @@
       const style = getChainStyle(displayChain);
 
       return `
-        <div class="p-3 sm:p-4 hover:bg-slate-50/70 transition space-y-2 ${
+        <div id="item-card-${item.id}" class="p-3 sm:p-4 hover:bg-slate-50/70 transition space-y-2 ${
           item.checked ? 'bg-slate-50/80 opacity-60' : status === 'unavailable' && activeListStoreFilter ? 'bg-rose-50/20' : ''
         }">
           
@@ -1093,7 +1100,7 @@
 
               <!-- Detalles del Producto: Nombre con ancho completo -->
               <div class="min-w-0 flex-1">
-                <p class="text-xs sm:text-sm font-bold text-slate-800 leading-snug break-words ${item.checked ? 'line-through text-slate-400' : ''}">
+                <p id="item-name-${item.id}" class="text-xs sm:text-sm font-bold text-slate-800 leading-snug break-words ${item.checked ? 'line-through text-slate-400' : ''}">
                   ${item.customName}
                 </p>
                 <div class="flex flex-wrap items-center gap-1.5 text-[10px] text-slate-400 mt-0.5">
@@ -1345,8 +1352,38 @@
     }
 
     async function toggleItem(id) {
-      await fetch(`/api/items/${id}/toggle`, { method: 'PATCH' });
-      loadShoppingList();
+      const card = document.getElementById(`item-card-${id}`);
+      const nameEl = document.getElementById(`item-name-${id}`);
+      const checkbox = card ? card.querySelector('input[type="checkbox"]') : null;
+
+      // Actualización visual inmediata sin esperas (0 ms)
+      if (checkbox) {
+        const isChecked = checkbox.checked;
+        if (isChecked) {
+          card?.classList.add('bg-slate-50/80', 'opacity-60');
+          nameEl?.classList.add('line-through', 'text-slate-400');
+        } else {
+          card?.classList.remove('bg-slate-50/80', 'opacity-60');
+          nameEl?.classList.remove('line-through', 'text-slate-400');
+        }
+
+        // Actualizar datos en memoria y contador de progreso
+        const items = currentListData?.list?.items || (currentListData?.groupedByAisle ? currentListData.groupedByAisle.flatMap(g => g.items) : []);
+        const item = items.find(i => i.id === id);
+        if (item) item.checked = isChecked;
+
+        const total = items.length;
+        const completed = items.filter(i => i.checked).length;
+        const progEl = document.getElementById('list-progress');
+        if (progEl) progEl.innerText = `${completed} de ${total} marcados`;
+      }
+
+      // Persistir de fondo de forma asíncrona
+      try {
+        await fetch(`/api/items/${id}/toggle`, { method: 'PATCH' });
+      } catch (err) {
+        console.warn('Error guardando toggle de ítem:', err);
+      }
     }
 
     async function deleteItem(id) {
@@ -2539,10 +2576,6 @@
 
       loadStats();
       loadShoppingList();
-      loadCategories();
-      loadBrands();
-      loadSupermarkets();
-      loadSettingsTab();
       if (typeof window.checkAppUpdateOnLaunch === 'function') {
         window.checkAppUpdateOnLaunch();
       }

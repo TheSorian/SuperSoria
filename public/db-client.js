@@ -143,6 +143,10 @@ class SuperSoriaClientDB {
     this.initPromise = null;
     this.idbName = 'supersoria_offline_cache';
     this.idbStore = 'sqlite_files';
+    this._categoriesCache = null;
+    this._brandsCache = null;
+    this._supermarketsCache = null;
+    this._alternativeCache = new Map();
   }
 
   async init(onProgress) {
@@ -269,6 +273,7 @@ class SuperSoriaClientDB {
   }
 
   getSupermarkets() {
+    if (this._supermarketsCache) return this._supermarketsCache;
     if (!this.db) return { success: false, supermarkets: [] };
     const stmt = this.db.prepare(`
       SELECT s.id, s.name, s.chain, s.address, s.postalCode, s.city, s.active, COUNT(pr.id) as pricesCount
@@ -283,10 +288,12 @@ class SuperSoriaClientDB {
       list.push(stmt.getAsObject());
     }
     stmt.free();
-    return { success: true, count: list.length, supermarkets: list };
+    this._supermarketsCache = { success: true, count: list.length, supermarkets: list };
+    return this._supermarketsCache;
   }
 
   getCategories() {
+    if (this._categoriesCache) return this._categoriesCache;
     if (!this.db) return { success: false, categories: [] };
     const stmt = this.db.prepare(`
       SELECT c.id, c.name, c.icon, c.aisleOrder, COUNT(p.id) as count
@@ -300,10 +307,12 @@ class SuperSoriaClientDB {
       list.push(stmt.getAsObject());
     }
     stmt.free();
-    return { success: true, count: list.length, categories: list };
+    this._categoriesCache = { success: true, count: list.length, categories: list };
+    return this._categoriesCache;
   }
 
   getBrands() {
+    if (this._brandsCache) return this._brandsCache;
     if (!this.db) return { success: false, brands: [] };
     const stmt = this.db.prepare(`
       SELECT brand as name, COUNT(id) as count
@@ -318,7 +327,8 @@ class SuperSoriaClientDB {
       list.push(stmt.getAsObject());
     }
     stmt.free();
-    return { success: true, count: list.length, brands: list };
+    this._brandsCache = { success: true, count: list.length, brands: list };
+    return this._brandsCache;
   }
 
   searchProducts({ query, brand, categoryId, supermarketId, limit = 40, offset = 0 }) {
@@ -558,6 +568,11 @@ class SuperSoriaClientDB {
   findAlternativeInChain(product, chain) {
     if (!this.db || !product) return null;
 
+    const cacheKey = `${product.id}_${(chain || '').toLowerCase()}`;
+    if (this._alternativeCache && this._alternativeCache.has(cacheKey)) {
+      return this._alternativeCache.get(cacheKey);
+    }
+
     const isBagSearch = /basura|congelaci[oó]n|residuos/i.test(product.name || '');
     const stopWords = new Set([
       'de', 'la', 'el', 'en', 'con', 'y', 'a', 'para', 'del', 'los', 'las', 'un', 'una', 'al',
@@ -576,7 +591,10 @@ class SuperSoriaClientDB {
       .split(/\s+/)
       .filter((t) => t.length > 2 && !stopWords.has(t) && (!brandName || !brandName.includes(t)));
 
-    if (cleanTokens.length === 0) return null;
+    if (cleanTokens.length === 0) {
+      if (this._alternativeCache) this._alternativeCache.set(cacheKey, null);
+      return null;
+    }
 
     // Extraer capacidad / volumen si existe (ej: 50L, 30L, 10L, 1L, etc.)
     const volMatch = (product.name || '').match(/(\d+)\s*(l|litros?)/i);
@@ -630,7 +648,10 @@ class SuperSoriaClientDB {
       console.error('Error prepare findAlternative:', e);
     }
 
-    if (candidates.length === 0) return null;
+    if (candidates.length === 0) {
+      if (this._alternativeCache) this._alternativeCache.set(cacheKey, null);
+      return null;
+    }
 
     // Puntuación inteligente de alternativas
     for (const c of candidates) {
@@ -663,7 +684,9 @@ class SuperSoriaClientDB {
     }
 
     candidates.sort((a, b) => b._score - a._score || a.price - b.price);
-    return candidates[0] && candidates[0]._score > -50 ? candidates[0] : null;
+    const result = candidates[0] && candidates[0]._score > -50 ? candidates[0] : null;
+    if (this._alternativeCache) this._alternativeCache.set(cacheKey, result);
+    return result;
   }
 
   // --- GESTIÓN DE LA LISTA DE LA COMPRA EN LOCALSTORAGE ---
@@ -1005,11 +1028,13 @@ class SuperSoriaClientDB {
   toggleShoppingListItem(itemId) {
     const items = this.getShoppingListItems();
     const idx = items.findIndex((i) => i.id === itemId);
+    let item = null;
     if (idx !== -1) {
       items[idx].checked = !items[idx].checked;
+      item = items[idx];
       this.saveShoppingListItems(items);
     }
-    return { success: true, ...this.getShoppingListData() };
+    return { success: true, item };
   }
 
   changeItemQuantity(itemId, delta) {
