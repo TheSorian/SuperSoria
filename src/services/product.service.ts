@@ -25,19 +25,36 @@ export function getWordVariants(word: string): string[] {
     stems.add(norm + 'es');
   }
 
+  // Inflección de género (-o, -a, -os, -as)
+  for (const s of Array.from(stems)) {
+    if (s.endsWith('o') && s.length > 3) {
+      stems.add(s.slice(0, -1) + 'a');
+      stems.add(s.slice(0, -1) + 'as');
+      stems.add(s.slice(0, -1) + 'os');
+    } else if (s.endsWith('a') && s.length > 3) {
+      stems.add(s.slice(0, -1) + 'o');
+      stems.add(s.slice(0, -1) + 'os');
+      stems.add(s.slice(0, -1) + 'as');
+    }
+  }
+
   // Sinónimos comunes en compras españolas
   const synonyms: Record<string, string[]> = {
     fresca: ['fresca', 'pasteurizada', 'fresco'],
     fresco: ['fresco', 'fresca', 'pasteurizada'],
     yogurt: ['yogurt', 'yogur', 'yogures'],
     yogur: ['yogur', 'yogurt', 'yogures'],
-    platano: ['platano', 'plátano', 'banana'],
-    plátano: ['platano', 'plátano', 'banana'],
+    platano: ['platano', 'plátano', 'banana', 'bananas'],
+    plátano: ['platano', 'plátano', 'banana', 'bananas'],
     torrezno: ['torrezno', 'torreznos', 'panceta'],
     torreznos: ['torrezno', 'torreznos', 'panceta'],
     oliva: ['oliva', 'olivas'],
     atun: ['atun', 'atún', 'bonito'],
     atún: ['atun', 'atún', 'bonito'],
+    humedo: ['humedo', 'húmedo', 'humeda', 'húmeda'],
+    húmedo: ['humedo', 'húmedo', 'humeda', 'húmeda'],
+    higienico: ['higienico', 'higiénico', 'higienica', 'higiénica'],
+    higiénico: ['higienico', 'higiénico', 'higienica', 'higiénica'],
   };
 
   for (const s of Array.from(stems)) {

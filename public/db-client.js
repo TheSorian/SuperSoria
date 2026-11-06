@@ -3,6 +3,139 @@
  * Permite que la app funcione 100% offline en móviles (APK) y navegadores sin depender de servidor Node.js
  */
 
+// Expande un término de búsqueda a sus variantes en español (tildes, singular/plural, sinónimos y género)
+function getWordVariants(word) {
+  const norm = (word || '').toLowerCase().trim();
+  if (!norm) return [];
+
+  const stems = new Set([norm]);
+
+  // Plural / singular en español
+  if (norm.endsWith('es') && norm.length > 4) {
+    stems.add(norm.slice(0, -2));
+    stems.add(norm.slice(0, -1));
+  } else if (norm.endsWith('s') && norm.length > 3) {
+    stems.add(norm.slice(0, -1));
+  } else if (norm.length > 3) {
+    stems.add(norm + 's');
+    stems.add(norm + 'es');
+  }
+
+  // Inflección de género (-o, -a, -os, -as)
+  for (const s of Array.from(stems)) {
+    if (s.endsWith('o') && s.length > 3) {
+      stems.add(s.slice(0, -1) + 'a');
+      stems.add(s.slice(0, -1) + 'as');
+      stems.add(s.slice(0, -1) + 'os');
+    } else if (s.endsWith('a') && s.length > 3) {
+      stems.add(s.slice(0, -1) + 'o');
+      stems.add(s.slice(0, -1) + 'os');
+      stems.add(s.slice(0, -1) + 'as');
+    }
+  }
+
+  // Sinónimos comunes en compras españolas
+  const synonyms = {
+    fresca: ['fresca', 'pasteurizada', 'fresco'],
+    fresco: ['fresco', 'fresca', 'pasteurizada'],
+    yogurt: ['yogurt', 'yogur', 'yogures'],
+    yogur: ['yogur', 'yogurt', 'yogures'],
+    platano: ['platano', 'plátano', 'banana', 'bananas'],
+    plátano: ['platano', 'plátano', 'banana', 'bananas'],
+    torrezno: ['torrezno', 'torreznos', 'panceta'],
+    torreznos: ['torrezno', 'torreznos', 'panceta'],
+    oliva: ['oliva', 'olivas'],
+    atun: ['atun', 'atún', 'bonito'],
+    atún: ['atun', 'atún', 'bonito'],
+    humedo: ['humedo', 'húmedo', 'humeda', 'húmeda'],
+    húmedo: ['humedo', 'húmedo', 'humeda', 'húmeda'],
+    higienico: ['higienico', 'higiénico', 'higienica', 'higiénica'],
+    higiénico: ['higienico', 'higiénico', 'higienica', 'higiénica'],
+  };
+
+  const variants = new Set();
+  for (const s of Array.from(stems)) {
+    variants.add(s);
+    if (synonyms[s]) {
+      synonyms[s].forEach(syn => variants.add(syn));
+    }
+  }
+
+  // Expandir todas las combinaciones de tildes (a/á, e/é, i/í, o/ó, u/ú/ü, n/ñ)
+  const charMap = {
+    a: ['a', 'á'],
+    e: ['e', 'é'],
+    i: ['i', 'í'],
+    o: ['o', 'ó'],
+    u: ['u', 'ú', 'ü'],
+    n: ['n', 'ñ'],
+  };
+
+  const finalVariants = new Set();
+  for (const v of variants) {
+    finalVariants.add(v);
+    const plain = v.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    finalVariants.add(plain);
+    for (let i = 0; i < plain.length; i++) {
+      const ch = plain[i];
+      if (charMap[ch]) {
+        for (const alt of charMap[ch]) {
+          finalVariants.add(plain.slice(0, i) + alt + plain.slice(i + 1));
+        }
+      }
+    }
+  }
+
+  return Array.from(finalVariants);
+}
+
+// Cálculo de relevancia para priorizar alimentos básicos y marcas deseadas
+function calculateRelevance(product, queryTokens, originalQuery) {
+  let score = 0;
+  const nameLower = (product.name || '').toLowerCase();
+  const brandLower = (product.brand || '').toLowerCase();
+  const qLower = (originalQuery || '').toLowerCase();
+  const qPlain = qLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  const namePlain = nameLower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+  if (namePlain.startsWith(qPlain)) {
+    score += 160;
+  } else if (namePlain.includes(' ' + qPlain) || namePlain.includes(qPlain)) {
+    score += 90;
+  }
+
+  if (brandLower.includes(qPlain)) {
+    score += 80;
+  }
+
+  for (const token of queryTokens) {
+    const tPlain = token.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const regex = new RegExp(`\\b${tPlain}\\b`, 'i');
+    if (regex.test(namePlain)) {
+      score += 45;
+    }
+  }
+
+  if (product.imageUrl) score += 20;
+
+  if (/^[0-9%#$]/.test(product.name || '') && !/\d/.test(originalQuery)) {
+    score -= 40;
+  }
+
+  if (
+    qPlain === 'leche' &&
+    (namePlain.includes('helado') ||
+      namePlain.includes('chocolate') ||
+      namePlain.includes('bombones') ||
+      namePlain.includes('turron') ||
+      namePlain.includes('tarrina'))
+  ) {
+    score -= 80;
+  }
+
+  return score;
+}
+
 class SuperSoriaClientDB {
   constructor() {
     this.db = null;
@@ -199,12 +332,18 @@ class SuperSoriaClientDB {
     `;
     const where = [];
     const params = [];
+    const hasQuery = Boolean(query && query.trim());
+    const queryTokens = hasQuery ? query.trim().split(/\s+/).filter(Boolean) : [];
 
-    if (query && query.trim()) {
-      const tokens = query.trim().split(/\s+/).filter(Boolean);
-      for (const t of tokens) {
-        where.push(`(p.name LIKE ? OR p.brand LIKE ?)`);
-        params.push(`%${t}%`, `%${t}%`);
+    if (hasQuery) {
+      for (const t of queryTokens) {
+        const variants = getWordVariants(t);
+        const subConds = [];
+        for (const v of variants) {
+          subConds.push(`p.name LIKE ? OR p.brand LIKE ?`);
+          params.push(`%${v}%`, `%${v}%`);
+        }
+        where.push(`(${subConds.join(' OR ')})`);
       }
     }
 
@@ -231,7 +370,7 @@ class SuperSoriaClientDB {
       sql += ` WHERE ` + where.join(' AND ');
     }
 
-    // Contar total
+    // Contar total de coincidencias
     const countSql = `SELECT COUNT(*) FROM (` + sql + `)`;
     const countStmt = this.db.prepare(countSql);
     countStmt.bind(params);
@@ -239,17 +378,33 @@ class SuperSoriaClientDB {
     const total = countStmt.get()[0] || 0;
     countStmt.free();
 
-    // Obtener paginados
-    sql += ` LIMIT ? OFFSET ?`;
-    const queryParams = [...params, limit, offset];
-    const stmt = this.db.prepare(sql);
-    stmt.bind(queryParams);
+    // Obtener productos (con ranking de relevancia si hay búsqueda de texto)
+    let products = [];
+    if (hasQuery) {
+      const fetchLimit = Math.max(limit * 3, 140);
+      const stmt = this.db.prepare(sql + ` LIMIT ?`);
+      stmt.bind([...params, fetchLimit]);
+      const candidates = [];
+      while (stmt.step()) {
+        candidates.push(stmt.getAsObject());
+      }
+      stmt.free();
 
-    const products = [];
-    while (stmt.step()) {
-      products.push(stmt.getAsObject());
+      for (const prod of candidates) {
+        prod._relevance = calculateRelevance(prod, queryTokens, query);
+      }
+      candidates.sort((a, b) => b._relevance - a._relevance);
+      products = candidates.slice(offset, offset + limit);
+    } else {
+      sql += ` ORDER BY p.name ASC LIMIT ? OFFSET ?`;
+      const queryParams = [...params, limit, offset];
+      const stmt = this.db.prepare(sql);
+      stmt.bind(queryParams);
+      while (stmt.step()) {
+        products.push(stmt.getAsObject());
+      }
+      stmt.free();
     }
-    stmt.free();
 
     // Enriquecer cada producto con sus precios por supermercado
     const priceStmt = this.db.prepare(`
@@ -319,22 +474,18 @@ class SuperSoriaClientDB {
 
   findMatchingProduct(text) {
     if (!this.db || !text) return null;
-    const clean = text.trim();
-    const firstWord = clean.split(/\s+/)[0];
-
-    const stmt = this.db.prepare(`
-      SELECT id, name FROM Product 
-      WHERE name LIKE ? OR name LIKE ? 
-      ORDER BY CASE WHEN name LIKE ? THEN 1 ELSE 2 END 
-      LIMIT 1
-    `);
-    stmt.bind([`%${clean}%`, `%${firstWord}%`, `${clean}%`]);
-    if (stmt.step()) {
-      const row = stmt.getAsObject();
-      stmt.free();
-      return row;
+    const searchRes = this.searchProducts({ query: text, limit: 1 });
+    if (searchRes && searchRes.products && searchRes.products.length > 0) {
+      return searchRes.products[0];
     }
-    stmt.free();
+    // Fallback: primer token
+    const firstWord = text.trim().split(/\s+/)[0];
+    if (firstWord && firstWord !== text.trim()) {
+      const fb = this.searchProducts({ query: firstWord, limit: 1 });
+      if (fb && fb.products && fb.products.length > 0) {
+        return fb.products[0];
+      }
+    }
     return null;
   }
 
