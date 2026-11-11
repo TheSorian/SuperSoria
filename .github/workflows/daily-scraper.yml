@@ -49,6 +49,7 @@ jobs:
         run: |
           git config --global user.name "SuperSoria Bot"
           git config --global user.email "bot@supersoria.es"
-          git add prisma/dev.db dist-release/metadata.json dist-release/supersoria-db.sqlite.gz public/assets/supersoria.db
+          git add prisma/dev.db dist-release/metadata.json dist-release/supersoria-db.sqlite.gz
           git diff-index --quiet HEAD || git commit -m "chore(db): actualización automática de precios [skip ci]"
+          git pull --rebase origin master
           git push origin HEAD:master

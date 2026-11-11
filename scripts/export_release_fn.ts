@@ -16,6 +16,16 @@ export async function exportRelease() {
     throw new Error(`Base de datos no encontrada en ${dbPath}`);
   }
 
+  // Asegurar índices de rendimiento y actualizar estadísticas de SQLite
+  try {
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "PriceRecord_prod_super_idx" ON "PriceRecord"("productId", "supermarketId", "price")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "Product_brand_idx" ON "Product"("brand")`);
+    await prisma.$executeRawUnsafe(`CREATE INDEX IF NOT EXISTS "PriceRecord_super_idx" ON "PriceRecord"("supermarketId", "price")`);
+    await prisma.$executeRawUnsafe(`ANALYZE`);
+  } catch (idxErr) {
+    console.warn('Aviso al optimizar índices SQLite:', idxErr);
+  }
+
   // 1. Obtener estadísticas de la base de datos
   const [totalProducts, totalPriceRecords, supermarkets] = await Promise.all([
     prisma.product.count(),
@@ -59,7 +69,7 @@ export async function exportRelease() {
   // 4. Generar metadata.json
   const metadata = {
     appName: 'SuperSoria',
-    version: '1.2.6',
+    version: '1.2.7',
     generatedAt: new Date().toISOString(),
     sha256,
     fileSizeCompressedBytes: gzSize,
@@ -70,15 +80,16 @@ export async function exportRelease() {
       totalPriceRecords,
       supermarkets: superBreakdown,
     },
-    downloadUrl: 'https://github.com/TheSorian/SuperSoria/releases/download/latest-data/supersoria-db.sqlite.gz',
+    downloadUrl: 'https://raw.githubusercontent.com/TheSorian/SuperSoria/master/dist-release/supersoria-db.sqlite.gz',
   };
 
   const metaPath = path.join(outDir, 'metadata.json');
   fs.writeFileSync(metaPath, JSON.stringify(metadata, null, 2), 'utf-8');
   console.log(`✅ Metadatos guardados en ${metaPath}`);
 
-  // 5. Copiar también a public/assets para empaquetado directo
+  // 5. Copiar también a public/assets para empaquetado directo local
   const pubAssetPath = path.join(process.cwd(), 'public', 'assets', 'supersoria.db');
+  fs.mkdirSync(path.dirname(pubAssetPath), { recursive: true });
   fs.copyFileSync(dbPath, pubAssetPath);
   console.log(`✅ Copia actualizada en ${pubAssetPath}`);
 }
