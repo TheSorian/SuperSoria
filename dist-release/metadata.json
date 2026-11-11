@@ -1,28 +1,28 @@
 {
   "appName": "SuperSoria",
-  "version": "1.0.0",
-  "generatedAt": "2026-11-06T22:06:26.500Z",
-  "sha256": "38ab633d29c2683576760e87365fda11d4d28628d2a15dbf9035bb59160e1805",
-  "fileSizeCompressedBytes": 17687967,
-  "fileSizeCompressedMB": 16.87,
-  "fileSizeUncompressedMB": 49.72,
+  "version": "1.2.7",
+  "generatedAt": "2026-11-11T12:34:46.378Z",
+  "sha256": "d564e741eb640c7ccc7a573b455a9907aa582274b5c9393eb3fc45b6909566d4",
+  "fileSizeCompressedBytes": 19032679,
+  "fileSizeCompressedMB": 18.15,
+  "fileSizeUncompressedMB": 55.16,
   "stats": {
-    "totalProducts": 47150,
-    "totalPriceRecords": 81894,
+    "totalProducts": 48277,
+    "totalPriceRecords": 84475,
     "supermarkets": {
-      "Mercadona - C/ Eduardo Saavedra": 5865,
-      "Mercadona - C/ José Luis Palomar": 5849,
-      "Dia - Calle Aguirre": 8363,
-      "Dia - Avda. Valladolid": 8362,
-      "Dia - Calle Sagunto": 8362,
-      "Lupa - Plaza Mariano Granados": 2976,
-      "Lupa - Almazán": 2437,
-      "Lidl - Avda. Valladolid": 2955,
-      "Hipermercado E.Leclerc - Polígono Las Casas": 9546,
-      "E.Leclerc Express - C/ Mariano Vicén": 9536,
-      "Alcampo - Centro Comercial Camaretas": 17643,
+      "Mercadona - C/ Eduardo Saavedra": 5910,
+      "Mercadona - C/ José Luis Palomar": 5910,
+      "Dia - Calle Aguirre": 8519,
+      "Dia - Avda. Valladolid": 8519,
+      "Dia - Calle Sagunto": 8519,
+      "Lupa - Plaza Mariano Granados": 2997,
+      "Lupa - Almazán": 2997,
+      "Lidl - Avda. Valladolid": 2969,
+      "Hipermercado E.Leclerc - Polígono Las Casas": 10015,
+      "E.Leclerc Express - C/ Mariano Vicén": 10016,
+      "Alcampo - Centro Comercial Camaretas": 18104,
       "Supermercados Calservi - C/ Francisco de Soto": 0
     }
   },
-  "downloadUrl": "https://github.com/TheSorian/SuperSoria/releases/latest/download/supersoria-db.sqlite.gz"
+  "downloadUrl": "https://raw.githubusercontent.com/TheSorian/SuperSoria/master/dist-release/supersoria-db.sqlite.gz"
 }
