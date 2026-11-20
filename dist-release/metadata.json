@@ -1,14 +1,14 @@
 {
   "appName": "SuperSoria",
   "version": "1.2.7",
-  "generatedAt": "2026-11-19T12:39:30.903Z",
-  "sha256": "ac7a0d357d542bcf99af7269254609043f11c4921da529674a8834122e4ea8ec",
-  "fileSizeCompressedBytes": 19257156,
+  "generatedAt": "2026-11-20T12:32:21.581Z",
+  "sha256": "8342f949fe6d072ee2c03bb59e5cc97dd9a2869a9ef614257e991fb36faed718",
+  "fileSizeCompressedBytes": 19264912,
   "fileSizeCompressedMB": 18.37,
-  "fileSizeUncompressedMB": 55.73,
+  "fileSizeUncompressedMB": 55.76,
   "stats": {
-    "totalProducts": 48678,
-    "totalPriceRecords": 85276,
+    "totalProducts": 48687,
+    "totalPriceRecords": 85294,
     "supermarkets": {
       "Mercadona - C/ Eduardo Saavedra": 5936,
       "Mercadona - C/ José Luis Palomar": 5936,
@@ -18,8 +18,8 @@
       "Lupa - Plaza Mariano Granados": 3014,
       "Lupa - Almazán": 3014,
       "Lidl - Avda. Valladolid": 3003,
-      "Hipermercado E.Leclerc - Polígono Las Casas": 10312,
-      "E.Leclerc Express - C/ Mariano Vicén": 10313,
+      "Hipermercado E.Leclerc - Polígono Las Casas": 10321,
+      "E.Leclerc Express - C/ Mariano Vicén": 10322,
       "Alcampo - Centro Comercial Camaretas": 18104,
       "Supermercados Calservi - C/ Francisco de Soto": 0
     }
